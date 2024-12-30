@@ -271,3 +271,59 @@ class HTTPManager:
                 self.logger.debug(f"Response -> {data}")
 
             return data
+        
+        
+    def _submit_paginated_request(
+        self,
+        method: str,
+        path: str,
+        query=None,
+        auth=False,
+        max_pages: int = None,
+    ):
+        """
+        Fetch multiple pages using Bybit's cursor-based pagination.
+        - 'nextPageCursor' in response['result'] indicates the next cursor.
+        - Pass 'cursor' in the request query to get the next page.
+
+        :param method: e.g. "GET" or "POST"
+        :param path: full URL, typically self.endpoint + "/v5/..."
+        :param query: dict of query params (including 'limit' if desired)
+        :param auth: whether this endpoint needs authentication
+        :param max_pages: if set, fetch at most this many pages (default is all pages)
+
+        :return: a combined list of all items from 'result["list"]' across all pages
+        """
+        if query is None:
+            query = {}
+
+        all_records = []
+        current_cursor = None
+        pages_fetched = 0
+
+        while True:
+            # Add cursor to the query if we have one
+            if current_cursor:
+                query["cursor"] = current_cursor
+
+            # Single-page request using the existing logic
+            single_response = self._submit_request(method, path, query=query, auth=auth)
+            result = single_response.get("result", {})
+            records = result.get("list", [])
+            all_records.extend(records)
+
+            # Check nextPageCursor
+            next_cursor = result.get("nextPageCursor")
+            if not next_cursor:
+                # No more pages
+                break
+
+            # Prepare for next iteration
+            current_cursor = next_cursor
+            pages_fetched += 1
+
+            # If max_pages was given and we've hit it, stop
+            if max_pages is not None and pages_fetched >= max_pages:
+                break
+
+        return all_records
