@@ -1,8 +1,8 @@
-from ._http_manager import HTTPManager
-from ._market import MarketHTTP
-from ._trade import TradeHTTP
-from ._account import AccountHTTP
-from ._spot_leverage_token import SpotLeverageHTTP
+from Bybit._http_manager import HTTPManager
+from Bybit.market import Market_client
+from Bybit.trade import Trade_client
+from Bybit.account import Account_client
+from Bybit.margin import Margin_client
 
 
 class BybitAPI:
@@ -26,10 +26,10 @@ class BybitAPI:
         self.http_manager = HTTPManager(testnet=testnet, **kwargs)
 
         # Subclients
-        self.trade = TradeHTTP(self.http_manager)
-        self.leverage = SpotLeverageHTTP(self.http_manager)
-        self.market = MarketHTTP(self.http_manager)
-        self.account = AccountHTTP(self.http_manager)
+        self.trade = Trade_client(self.http_manager)
+        self.leverage = Margin_client(self.http_manager)
+        self.market = Market_client(self.http_manager)
+        self.account = Account_client(self.http_manager)
 
     def __repr__(self):
         return f"BybitAPI(testnet={self.http_manager.testnet})"

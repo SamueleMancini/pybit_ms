@@ -6,14 +6,14 @@ import json
 import logging
 import requests
 
-from datetime import datetime as dt
+from datetime import datetime as dt, timezone
 from json.decoder import JSONDecodeError
 
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 
-from .exceptions import FailedRequestError, InvalidRequestError
+from Bybit._exceptions import FailedRequestError, InvalidRequestError
 
 HTTP_URL = "https://{SUBDOMAIN}.bybit.com"
 SUBDOMAIN_TESTNET = "api-testnet"
@@ -158,7 +158,7 @@ class HTTPManager:
                     request=f"{method} {path}: {req_params}",
                     message="Maximum retries exceeded.",
                     status_code=400,
-                    time=dt.now(dt.timezone.utc).strftime("%H:%M:%S"),
+                    time=dt.now(timezone.utc).strftime("%H:%M:%S"),
                     resp_headers=None,
                 )
 
@@ -224,7 +224,7 @@ class HTTPManager:
                     request=f"{method} {path}: {req_params}",
                     message=err_msg,
                     status_code=resp.status_code,
-                    time=dt.now(dt.timezone.utc).strftime("%H:%M:%S"),
+                    time=dt.now(timezone.utc).strftime("%H:%M:%S"),
                     resp_headers=resp.headers,
                 )
 
@@ -241,7 +241,7 @@ class HTTPManager:
                         request=f"{method} {path}: {req_params}",
                         message="Could not decode JSON.",
                         status_code=409,
-                        time=dt.now(dt.timezone.utc).strftime("%H:%M:%S"),
+                        time=dt.now(timezone.utc).strftime("%H:%M:%S"),
                         resp_headers=resp.headers,
                     )
 
@@ -263,7 +263,7 @@ class HTTPManager:
                         request=f"{method} {path}: {req_params}",
                         message=ret_msg,
                         status_code=ret_code,
-                        time=dt.now(dt.timezone.utc).strftime("%H:%M:%S"),
+                        time=dt.now(timezone.utc).strftime("%H:%M:%S"),
                         resp_headers=resp.headers,
                     )
 
