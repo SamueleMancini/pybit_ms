@@ -1,5 +1,7 @@
 from Bybit._http_manager import HTTPManager
 from enum import Enum
+import pandas as pd
+from IPython.display import display_html
 
 
 class Market(str, Enum):
@@ -154,20 +156,160 @@ class Market_client:
             path=f"{self.endpoint}{Market.GET_ORDERBOOK}",
             query=kwargs,
         )
-
-    def get_tickers(self, **kwargs):
-        """Query the latest price snapshot, best bid/ask price, and trading volume in the last 24 hours.
-
-        Required args:
-            category (string): Product type. spot,linear,inverse,option
-        
-        https://bybit-exchange.github.io/docs/v5/market/tickers
+    
+    
+    def get_tickers(self, category, symbol, only_ticker=False, raw=False, **kwargs):
         """
-        return self._http_manager._submit_request(
+        Query the latest price snapshot, best bid/ask price, and trading volume in the last 24 hours.
+
+        Args:
+            category (str): Product type. One of "spot", "linear", "inverse", "option".
+            symbol (str): Symbol name (e.g., "BTCUSDT"), uppercase only.
+            only_ticker (bool, optional): If True, return only the ticker price. Defaults to False.
+            raw (bool, optional): If True, return the raw request response. Defaults to False.
+            **kwargs: Additional query parameters to be sent to the API.
+
+        Returns:
+            float: If only_ticker is True, returns the last price as a float.
+            dict: If raw is True, returns the full API response (as a dict).
+            None: If neither only_ticker nor raw is True, displays formatted HTML output and returns None.
+
+        Note:
+            If `retCode` in the response is non-zero, returns an empty DataFrame.
+            https://bybit-exchange.github.io/docs/v5/market/tickers
+        """
+
+        def format_dashboard(df):
+            """
+            Apply custom styling to a pandas DataFrame for display in a Jupyter environment.
+            """
+            def style_specific_cell(x):
+                styles = []
+                for col_name in x.keys():
+                    if 'Bid' in col_name:
+                        styles.append('background-color: lightgreen; '
+                                      'color: black; font-weight: bold;')
+                    elif 'Ask' in col_name:
+                        styles.append('background-color: salmon; '
+                                      'color: black; font-weight: bold;')
+                    elif 'Value' in col_name:
+                        styles.append('background-color: black; color: lime')
+                    else:
+                        styles.append('background-color: black')
+                return styles
+
+            styled = df.style.apply(style_specific_cell, axis=1)
+
+            # Right-align columns
+            styled = styled.set_properties(**{'text-align': 'right'})
+
+            # Add a border and control table sizing
+            styled = styled.set_table_attributes(
+                'style="font-size: 12px; border: 2px solid black;"'
+            )
+
+            def format_with_spaces(value):
+                """Format numeric values to have commas replaced by spaces, e.g. 1,234.56 -> 1 234.56."""
+                try:
+                    num = float(value)
+                    if num.is_integer():
+                        num = int(num)
+                    formatted = f"{num:,}".replace(",", " ")
+                    
+                except ValueError:
+                    formatted = value
+                return formatted
+
+            styled = styled.format(format_with_spaces)
+
+            header_styles = [
+                {
+                    'selector': 'caption',
+                    'props': [
+                        ('color', 'white'),
+                        ('font-size', '16px'),
+                        ('font-weight', 'bold'),
+                        ('text-align', 'center'),
+                        ('caption-side', 'top')
+                    ]
+                }
+            ]
+            styled = styled.set_table_styles(header_styles)
+
+            return styled
+
+        # Set required query parameters
+        kwargs["category"] = category
+        kwargs["symbol"] = symbol
+
+        response = self._http_manager._submit_request(
             method="GET",
             path=f"{self.endpoint}{Market.GET_TICKERS}",
             query=kwargs,
         )
+
+        # Check API response
+        if response['retCode'] == 0:
+            data_list = response.get('result', {}).get('list', [])
+            if not data_list:
+                # If the list is empty for some reason, return an empty DataFrame
+                return pd.DataFrame()
+
+            data = data_list[0]
+
+            # If only_ticker is True, return just the float price
+            if only_ticker:
+                return float(data['lastPrice'])
+
+            # If raw is True, return the entire response
+            if raw:
+                return response
+
+            # Convert timestamp to a human-readable format
+            # (Check if 'time' key exists to avoid KeyError in unpredictable responses)
+            if 'time' in response:
+                data['time'] = pd.to_datetime(response['time'], unit='ms').strftime('%H:%M:%S')
+            else:
+                data['time'] = 'N/A'
+
+            # Create vertical DataFrame
+            df_vertical = pd.DataFrame({
+                "Info": ["Last Price", "Time"],
+                "Value": [data['lastPrice'], data['time']]
+            })
+
+            # Create horizontal DataFrame
+            df_horizontal = pd.DataFrame([{
+                "Bid Price": data['bid1Price'],
+                "Bid Size": data['bid1Size'],
+                "Ask Price": data['ask1Price'],
+                "Ask Size": data['ask1Size'],
+                "24h High": data['highPrice24h'],
+                "24h Low": data['lowPrice24h']
+            }])
+
+            styled_vertical = format_dashboard(df_vertical).set_caption(symbol)
+            styled_horizontal = format_dashboard(df_horizontal).set_caption("Market Data")
+
+            html_vertical = styled_vertical._repr_html_()
+            html_horizontal = styled_horizontal._repr_html_()
+
+            combined_html = f"""
+            <table>
+              <tr>
+                <td style="vertical-align: top; padding-right: 20px;">{html_vertical}</td>
+                <td style="vertical-align: top;">{html_horizontal}</td>
+              </tr>
+            </table>
+            """
+
+            # Display the combined HTML
+            display_html(combined_html, raw=True)
+            return None
+        else:
+            # If retCode is not zero, return an empty DataFrame for consistency
+            return pd.DataFrame()
+
 
     def get_funding_rate_history(self, **kwargs):
         """

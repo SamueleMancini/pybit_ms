@@ -1,0 +1,7 @@
+Samu:
+    Market:
+        get_ticker():
+            Added possibility to display html for jupyter notebooks with relevant info, possibility to display raw request response,
+            or display float value of ticker.
+            
+        
