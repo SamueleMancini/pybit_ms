@@ -16,14 +16,14 @@ class BybitAPI:
         - account: Handles account management endpoints.
     """
 
-    def __init__(self, testnet=False, **kwargs):
+    def __init__(self, api_key=None, api_secret=None, testnet=False, **kwargs):
         """
         Initialize the BybitAPI client.
 
         :param testnet: (bool) Whether to use the testnet environment.
         :param kwargs: Additional parameters to pass to the HTTPManager.
         """
-        self.http_manager = HTTPManager(testnet=testnet, **kwargs)
+        self.http_manager = HTTPManager(api_key=api_key, api_secret=api_secret, testnet=testnet, **kwargs)
 
         # Subclients
         self.trade = Trade_client(self.http_manager)
