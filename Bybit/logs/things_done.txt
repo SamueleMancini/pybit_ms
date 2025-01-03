@@ -1,0 +1,11 @@
+Samu:
+    Trade:
+        place_order
+        cancel_all_orders
+        get_open_orders
+        get_executions
+        get_positions
+        cancel_order
+        amend_order
+    Market:
+        get_tickers
