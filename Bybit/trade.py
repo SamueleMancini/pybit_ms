@@ -257,7 +257,7 @@ class Trade_client:
 
             # If max_pages is set, use the paginated endpoint
             if max_pages:
-                data_list, _ = self._http_manager._submit_paginated_request(
+                data_list = self._http_manager._submit_paginated_request(
                     method="GET",
                     path=path,
                     query=kwargs,
