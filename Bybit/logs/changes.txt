@@ -3,6 +3,11 @@ Samu:
         get_ticker():
             Added possibility to display html for jupyter notebooks with relevant info, possibility to display raw request response,
             or display float value of ticker.
+    Trade:
+        get_open_orders():
+            Added possibility to display html pandas dataframe for jupyter notebooks with relevant fields for open orders, 
+            possibility to display raw request response, or display simple list of all open orders.
+
 
 
 
@@ -10,6 +15,6 @@ Samu:
 Mic:
     account:
         get_wallet_balance():
-            Added possibiity to display pie chart of wallet balance for jupyter notebooks, possibiity to display raw request response
+            Added possibility to display pie chart of wallet balance for jupyter notebooks, possibiity to display raw request response
             or display a formatted more readable response. 
             Added documentation: now you can see that accountType is a required parameter. 

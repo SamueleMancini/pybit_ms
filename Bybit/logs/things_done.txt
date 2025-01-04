@@ -9,3 +9,7 @@ Samu:
         amend_order
     Market:
         get_tickers
+
+Mic:
+    account:
+        get_wallet_balance:

@@ -252,8 +252,8 @@ class Market_client:
         if response['retCode'] == 0:
             data_list = response.get('result', {}).get('list', [])
             if not data_list:
-                # If the list is empty for some reason, return an empty DataFrame
-                return pd.DataFrame()
+                # If the list is empty for some reason, return an empty dictionary
+                return {}
 
             data = data_list[0]
 
