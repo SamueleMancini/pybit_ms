@@ -1,5 +1,7 @@
 from Bybit._http_manager import HTTPManager
 from enum import Enum
+import matplotlib.pyplot as plt
+from matplotlib import colormaps
 
 
 class Account(str, Enum):
@@ -32,49 +34,98 @@ class Account_client:
     def __init__(self, http_manager: HTTPManager):
         self._http_manager = http_manager
         self.endpoint = http_manager.endpoint
-    
-    def get_wallet_balance(self, **kwargs):
+
+
+    def get_wallet_balance(self, accountType, plot=False, raw=False, **kwargs):
         """
-        Obtain wallet balance, query asset information, etc.
+        Fetch and process the wallet balance from the Bybit API.
+
+        This function retrieves wallet balance details, optionally plots a 
+        pie chart of the balance distribution, and can return either the 
+        raw response or formatted text output.
+
+        Required args:
+            accountType (string): Account type
+                Unified account: UNIFIED
+                Normal account: CONTRACT
+
+        Args:
+            plot (bool): Whether to plot the wallet balance as a pie chart.
+            raw (bool): Whether to return the raw API response.
+            **kwargs: Additional query parameters for the API request.
+
+        Returns:
+            dict or None: 
+                - If raw=True, returns the full API response as a dictionary.
+                - If raw=False, prints the wallet balance in a formatted manner.
+        
         https://bybit-exchange.github.io/docs/v5/account/wallet-balance
         """
-        return self._http_manager._submit_request(
+
+
+        def plot_wallet_balance(response):
+            """
+            Plot a pie chart for the wallet balance distribution.
+            """
+            coin_data = response['result']['list'][0]['coin']
+            coins = [entry['coin'] for entry in coin_data]
+            usd_values = [float(entry['usdValue']) for entry in coin_data]
+            total_equity = float(response['result']['list'][0]['totalEquity'])
+
+            cmap = colormaps.get_cmap("Set3")
+            colors = [cmap(i / len(coins)) for i in range(len(coins))]
+
+            explode = [0.05] * len(coins)
+
+            plt.figure(figsize=(6, 6))
+            plt.pie(
+                usd_values,
+                labels=coins,
+                autopct='%1.1f%%',
+                startangle=140,
+                colors=colors,
+                explode=explode
+            )
+            plt.title(f"Wallet Distribution\nTotal Equity: ${total_equity:,.2f}")
+            plt.show()
+
+        def format_wallet_balance(response):
+            """
+            Format the wallet balance into a readable string format.            
+            """
+
+            coin_data = response['result']['list'][0]['coin']
+            output_lines = []
+            for entry in coin_data:
+                coin = entry['coin']
+                wallet_balance = float(entry['walletBalance'])
+                usd_value = float(entry['usdValue'])
+                output_lines.append(
+                    f"{coin}: Wallet Balance = {wallet_balance:.6f}, "
+                    f"USD Value = ${usd_value:.2f}"
+                )
+            print("\n".join(output_lines))
+        
+        kwargs["accountType"] = accountType
+
+        # Fetch wallet balance from the API
+        response = self._http_manager._submit_request(
             method="GET",
             path=f"{self.endpoint}{Account.GET_WALLET_BALANCE}",
             query=kwargs,
             auth=True,
         )
-    
-    def get_borrow_history(self, max_pages=None, **kwargs):
-        """
-        Get interest records in reverse order of creation time.
-        If you specify 'max_pages', multiple pages are fetched (cursor-based).
-        
-        https://bybit-exchange.github.io/docs/v5/account/borrow-history
 
-        :param max_pages: (int) Maximum number of pages to fetch, or None for a single request.
-        :param kwargs: Additional request params (like 'limit', 'accountType', etc.).
-        :return: Single page (default) or combined list (if using pagination).
-        """
-        path = f"{self.endpoint}{Account.GET_BORROW_HISTORY}"
+        # Plot the wallet balance if requested
+        if plot:
+            plot_wallet_balance(response)
 
-        if max_pages:
-            # Multi-page request
-            return self._http_manager._submit_paginated_request(
-                method="GET",
-                path=path,
-                query=kwargs,
-                auth=True,
-                max_pages=max_pages,
-            )
+        # Return either the raw response or formatted wallet balance
+        if raw:
+            return response
         else:
-            # Single-page request
-            return self._http_manager._submit_request(
-                method="GET",
-                path=path,
-                query=kwargs,
-                auth=True,
-            )
+            return format_wallet_balance(response)
+
 
     def repay_liability(self, **kwargs):
         """
