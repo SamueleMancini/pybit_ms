@@ -11,6 +11,10 @@ Samu:
         get_executions():
             Added possibility to display html pandas dataframe for jupyter notebooks with relevant fields for executed orders, 
             possibility to display raw request response, or display simple list of all open orders.
+        
+        get_positions():
+            Added possibility to display html pandas dataframe for jupyter notebooks with relevant fields for open positions, 
+            possibility to display raw request response, or display simple list of all open orders.
 
 
 

@@ -500,29 +500,136 @@ class Trade_client:
             auth=True,
         )
 
-    def get_positions(self, max_pages=None, **kwargs):
-        """
-        Query real-time position data, such as position size, cumulative realized PNL.
 
-        Required args:
-            category (string): Product type
+    def get_positions(
+        self,
+        category,
+        symbol=None,
+        settle_coin=None,
+        base_coin=None,
+        max_pages=None,
+        raw=False,
+        return_list=False,
+        **kwargs
+    ):
+        """
+        Query real-time position data (e.g., position size, cumulative realized PNL).
+
+        Args:
+            category (str): 
                 - Unified account: "linear", "option"
                 - Normal account: "linear", "inverse"
-            (Please note that category is not involved with business logic per the docs.)
+            symbol (str, optional): Symbol name, e.g., "BTCUSDT" (uppercase).
+            settle_coin (str, optional): Settlement coin, e.g., "USDT" or "BTC".
+            base_coin (str, optional): Base coin, e.g., "BTC".
+            max_pages (int, optional): If set, fetch multiple pages up to this limit.
+            raw (bool, optional): If True, return the raw API response.
+            return_list (bool, optional): If True, return a combined list from all pages.
+            **kwargs: Additional query parameters (e.g. `limit`, `symbol`, `baseCoin`).
 
-        https://bybit-exchange.github.io/docs/v5/position
+        Returns:
+            dict | list | None:
+                - If `max_pages` is None and `raw=True`, returns the raw response dict.
+                - If `max_pages` is set and `raw=True`, returns a combined list (raw data).
+                - If `max_pages` is None and `raw=False`, returns a dict if empty, or displays
+                  a styled HTML DataFrame of positions if not empty.
+                - If `return_list` is True, returns the combined list of positions (rather than a DataFrame).
+                - Otherwise, displays the styled HTML DataFrame in a Jupyter environment and returns None.
 
-        :param max_pages: (int) If set, fetch multiple pages up to this limit.
-        :param kwargs: Additional query parameters (e.g. limit, symbol, baseCoin, etc.).
-        :return:
-            - A single Bybit response dict if max_pages is None.
-            - A combined list of positions (across all pages) if max_pages is set.
+        Note:
+            For more information, see:
+            https://bybit-exchange.github.io/docs/v5/position
         """
-        path = f"{self.endpoint}{Trade.GET_POSITIONS}"
 
-        if max_pages:
-            # Multi-page fetch
-            return self._http_manager._submit_paginated_request(
+        def is_not_zero(value):
+            """Check if a value is numeric and not zero."""
+            try:
+                num = float(value)
+                return num != 0
+            except ValueError:
+                return False
+
+        def format_with_spaces(value):
+            """
+            Format numeric values to replace commas with spaces, e.g., 1,234.56 -> 1 234.56.
+            Only applies if `value` is numeric.
+            """
+            try:
+                num = float(value)
+                # If the number is an integer, display it as integer (e.g., 100.0 -> 100).
+                if num.is_integer():
+                    num = int(num)
+
+                # Insert thousands separators (replacing commas with spaces) if num is large.
+                if num > 99999:
+                    formatted = f"{num:,}".replace(",", " ")
+                else:
+                    formatted = str(num)
+            except ValueError:
+                formatted = value
+            return formatted
+
+        def format_dashboard(df, red='Ask', green='Bid', lime='Value'):
+            """
+            Apply custom styling to a pandas DataFrame for display in a Jupyter environment.
+            """
+            def style_specific_cell(row):
+                styles = []
+                for col_name in row.keys():
+                    if green in col_name:
+                        styles.append(
+                            'background-color: lightgreen; color: black; font-weight: bold;'
+                        )
+                    elif red in col_name:
+                        styles.append(
+                            'background-color: salmon; color: black; font-weight: bold;'
+                        )
+                    elif lime in col_name:
+                        styles.append('background-color: black; color: lime')
+                    else:
+                        styles.append('background-color: black')
+                return styles
+
+            styled = df.style.apply(style_specific_cell, axis=1)
+
+            # Right-align all columns
+            styled = styled.set_properties(**{'text-align': 'right'})
+
+            # Add a border and control table sizing
+            styled = styled.set_table_attributes(
+                'style="font-size: 12px; border: 2px solid black;"'
+            )
+
+            # Apply numeric formatting
+            styled = styled.format(format_with_spaces)
+
+            # Apply custom header styles
+            header_styles = [
+                {
+                    'selector': 'caption',
+                    'props': [
+                        ('color', 'white'),
+                        ('font-size', '16px'),
+                        ('font-weight', 'bold'),
+                        ('text-align', 'center'),
+                        ('caption-side', 'top')
+                    ]
+                }
+            ]
+            styled = styled.set_table_styles(header_styles)
+
+            return styled
+
+        # Build the request parameters
+        path = f"{self.endpoint}{Trade.GET_POSITIONS}"
+        kwargs["category"] = category
+        kwargs["symbol"] = symbol
+        kwargs["settleCoin"] = settle_coin
+        kwargs["baseCoin"] = base_coin
+
+        # If max_pages is set, use the paginated endpoint
+        if max_pages is not None:
+            data_list = self._http_manager._submit_paginated_request(
                 method="GET",
                 path=path,
                 query=kwargs,
@@ -530,13 +637,76 @@ class Trade_client:
                 max_pages=max_pages,
             )
         else:
-            # Single-page fetch
-            return self._http_manager._submit_request(
+            # Otherwise, make a single request
+            response = self._http_manager._submit_request(
                 method="GET",
                 path=path,
                 query=kwargs,
                 auth=True,
             )
+
+            # If raw is requested, return the entire response as-is
+            if raw:
+                return response
+
+            data_list = response.get('result', {}).get('list', [])
+            if not data_list:
+                # If the list is empty, return an empty dictionary
+                return {}
+
+        # If raw was requested (and multiple pages were fetched), return the raw data_list
+        if raw:
+            return data_list
+
+        # Filter and transform each item in data_list
+        keys_to_keep = [
+            'symbol', 'side', 'avgPrice', 'size', 'leverage', 'tradeMode',
+            'liqPrice', 'unrealisedPnl', 'curRealisedPnl',
+            'takeProfit', 'stopLoss', 'positionIM',
+            'positionBalance', 'positionMM', 'createdTime'
+        ]
+
+        for idx, item in enumerate(data_list):
+            filtered = {k: item[k] for k in keys_to_keep if k in item}
+
+            # Convert timestamp to human-readable format
+            if 'createdTime' in filtered:
+                try:
+                    filtered['createdTime'] = pd.to_datetime(
+                        int(filtered['createdTime']), unit='ms'
+                    ).strftime('%Y-%m-%d %H:%M:%S')
+                except (ValueError, TypeError):
+                    filtered['createdTime'] = '-'
+
+            # Combine tradeMode and leverage
+            if 'tradeMode' in filtered and 'leverage' in filtered:
+                mode_str = 'isolated' if filtered['tradeMode'] else 'cross'
+                filtered['leverage'] = f"{mode_str}: {filtered['leverage']}X"
+            filtered.pop('tradeMode', None)
+
+            if not is_not_zero(filtered.get('takeProfit', 0)):
+                filtered['takeProfit'] = '-'
+            if not is_not_zero(filtered.get('stopLoss', 0)):
+                filtered['stopLoss'] = '-'
+
+            data_list[idx] = filtered
+
+        # Return a Python list of positions
+        if return_list:
+            return data_list
+
+        # Otherwise, build a DataFrame and display it
+        df = pd.DataFrame(data_list)
+
+        # Rename 'positionBalance' to 'currentMargin'
+        if 'positionBalance' in df.columns:
+            df.rename(columns={'positionBalance': 'currentMargin'}, inplace=True)
+
+        styled_df = format_dashboard(df).set_caption("Open Positions")
+        html = styled_df._repr_html_()
+        display_html(html, raw=True)
+        return None
+
 
     def set_leverage(self, **kwargs):
         """Set the leverage
