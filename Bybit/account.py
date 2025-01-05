@@ -95,6 +95,7 @@ class Account_client:
             """
 
             coin_data = response['result']['list'][0]['coin']
+            total_equity = float(response['result']['list'][0]['totalEquity'])
             output_lines = []
             for entry in coin_data:
                 coin = entry['coin']
@@ -104,6 +105,7 @@ class Account_client:
                     f"{coin}: Wallet Balance = {wallet_balance:.6f}, "
                     f"USD Value = ${usd_value:.2f}"
                 )
+            print(f"Total equity: ${total_equity:,.2f}")
             print("\n".join(output_lines))
         
         kwargs["accountType"] = accountType

@@ -18,3 +18,8 @@ Mic:
             Added possibility to display pie chart of wallet balance for jupyter notebooks, possibiity to display raw request response
             or display a formatted more readable response. 
             Added documentation: now you can see that accountType is a required parameter. 
+
+    Market:
+        get_kline():
+            Added possibility to display plot of closed price and volume for jupyter notebooks, possibiity to display raw request response,
+            also to provide the link to the Bybit Kline page and possibilty to save the Kline data as a CSV file. 

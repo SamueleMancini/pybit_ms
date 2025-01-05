@@ -12,4 +12,6 @@ Samu:
 
 Mic:
     account:
-        get_wallet_balance:
+        get_wallet_balance
+    Market:
+        get_kline
