@@ -2,18 +2,20 @@ Samu:
     Trade:
         place_order
         cancel_all_orders
-        get_open_orders     X
-        get_executions      X
-        get_positions       X
+        get_open_orders         X
+        get_executions          X
+        get_positions           X
         cancel_order
         amend_order
     Market:
-        get_tickers         X
+        get_tickers             X
     Account:
-        get_account_info    X
+        get_account_info        X
 
 Mic:
     Account:
-        get_wallet_balance  X
+        get_wallet_balance      X
     Market:
-        get_kline           X
+        get_kline               X
+        get_mark_price_kline    X
+        get_index_price_kline   X

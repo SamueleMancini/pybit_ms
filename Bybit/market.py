@@ -46,7 +46,7 @@ class Market_client:
             path=f"{self.endpoint}{Market.GET_SERVER_TIME}",
         )
 
-    def get_kline(self, category: str, symbol: str, interval: str, save_csv=False, csv_filename=None, show_link=False, plot=False, raw=True, **kwargs) -> dict:
+    def get_kline(self, category: str, coin1: str, coin2: str, interval: str, save_csv=False, csv_filename=None, show_link=False, plot=False, raw=True, **kwargs) -> dict:
         """Query the kline data. Charts are returned in groups based on the requested interval.
 
         Required args:
@@ -66,7 +66,7 @@ class Market_client:
         """
 
         kwargs["category"] = category
-        kwargs["symbol"] = symbol
+        kwargs["symbol"] = coin1 + coin2
         kwargs["interval"] = interval
 
         response = self._http_manager._submit_request(
@@ -94,7 +94,7 @@ class Market_client:
         if show_link:
             symbol = kwargs.get('symbol', 'BTCUSDT')
             interval = kwargs.get('interval', '1')
-            print(f"View live Kline data for {symbol}: https://www.bybit.com/trade/{category}/{symbol.replace('USDT', '')}/USDT")
+            print(f"View live Kline data for {symbol}: https://www.bybit.com/trade/{category}/{coin1}/{coin2}")
 
 
         
@@ -132,7 +132,7 @@ class Market_client:
         
 
 
-    def get_mark_price_kline(self, **kwargs):
+    def get_mark_price_kline(self, category: str, coin1: str, coin2: str, interval: str, save_csv=False, csv_filename=None, plot=False, raw=True, **kwargs):
         """Query the mark price kline data. Charts are returned in groups based on the requested interval.
 
         Required args:
@@ -140,15 +140,71 @@ class Market_client:
             symbol (string): Symbol name
             interval (string): Kline interval. 1,3,5,15,30,60,120,240,360,720,D,M,W
 
+        Args:
+            save_csv (bool): If True, saves the Kline data as a CSV file.
+            csv_filename (str): Name of the CSV file to save data.
+            plot(bool): If True, plots close price and volume for available data.
+            raw (bool): Whether to return the raw API response.
+            **kwargs: Additional query parameters for the API request.
+
         https://bybit-exchange.github.io/docs/v5/market/mark-kline
         """
-        return self._http_manager._submit_request(
+
+
+        kwargs["category"] = category
+        kwargs["symbol"] = coin1 + coin2
+        kwargs["interval"] = interval
+
+        response = self._http_manager._submit_request(
             method="GET",
             path=f"{self.endpoint}{Market.GET_MARK_PRICE_KLINE}",
             query=kwargs,
         )
 
-    def get_index_price_kline(self, **kwargs):
+
+        if save_csv:
+            import csv
+
+            # Extract data
+            kline_data = response['result']['list']
+            csv_filename = csv_filename or f"{kwargs.get('symbol')}_mark_price_kline.csv"
+
+            # Write to CSV
+            with open(csv_filename, mode='w', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow(['timestamp', 'open', 'high', 'low', 'close'])
+                writer.writerows(kline_data)
+
+            print(f"Mark price kline data saved to {csv_filename}")
+
+
+        
+        if plot:
+            kline_data = response['result']['list']
+            df = pd.DataFrame(kline_data, columns=['timestamp', 'open', 'high', 'low', 'close'])
+            df['timestamp'] = pd.to_numeric(df['timestamp'])
+            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+            df.set_index('timestamp', inplace=True)
+
+            # Convert columns to float for plotting
+            df[['open', 'high', 'low', 'close']] = df[['open', 'high', 'low', 'close']].astype(float)
+
+            fig, ax = plt.subplots(figsize=(8, 6))
+
+            # Plot close price
+            ax.plot(df.index, df['close'], label='Close Price', color='blue')
+            ax.set_ylabel("Price (USDT)")
+            ax.set_title(f"Mark Price Kline Data: Close Price")
+            ax.legend()
+
+            # Show the plot
+            plt.tight_layout()
+            plt.show()
+
+        if raw:
+            return response
+
+    def get_index_price_kline(self, category: str, coin1: str, coin2: str, interval: str, save_csv=False, csv_filename=None, plot=False, raw=True, **kwargs):
         """Query the index price kline data. Charts are returned in groups based on the requested interval.
 
         Required args:
@@ -156,13 +212,70 @@ class Market_client:
             symbol (string): Symbol name
             interval (string): Kline interval. 1,3,5,15,30,60,120,240,360,720,D,M,W
 
+        Args:
+            save_csv (bool): If True, saves the Kline data as a CSV file.
+            csv_filename (str): Name of the CSV file to save data.
+            plot(bool): If True, plots close price and volume for available data.
+            raw (bool): Whether to return the raw API response.
+            **kwargs: Additional query parameters for the API request.
+
         https://bybit-exchange.github.io/docs/v5/market/index-kline
         """
-        return self._http_manager._submit_request(
+
+        kwargs["category"] = category
+        kwargs["symbol"] = coin1 + coin2
+        kwargs["interval"] = interval
+
+        response = self._http_manager._submit_request(
             method="GET",
             path=f"{self.endpoint}{Market.GET_INDEX_PRICE_KLINE}",
             query=kwargs,
         )
+
+
+        if save_csv:
+            import csv
+
+            # Extract data
+            kline_data = response['result']['list']
+            csv_filename = csv_filename or f"{kwargs.get('symbol')}_mark_price_kline.csv"
+
+            # Write to CSV
+            with open(csv_filename, mode='w', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow(['timestamp', 'open', 'high', 'low', 'close'])
+                writer.writerows(kline_data)
+
+            print(f"Mark price kline data saved to {csv_filename}")
+
+
+        
+        if plot:
+            kline_data = response['result']['list']
+            df = pd.DataFrame(kline_data, columns=['timestamp', 'open', 'high', 'low', 'close'])
+            df['timestamp'] = pd.to_numeric(df['timestamp'])
+            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+            df.set_index('timestamp', inplace=True)
+
+            # Convert columns to float for plotting
+            df[['open', 'high', 'low', 'close']] = df[['open', 'high', 'low', 'close']].astype(float)
+
+            fig, ax = plt.subplots(figsize=(8, 6))
+
+            # Plot close price
+            ax.plot(df.index, df['close'], label='Close Price', color='blue')
+            ax.set_ylabel("Price (USDT)")
+            ax.set_title(f"Index Price Kline Data: Close Price")
+            ax.legend()
+
+            # Show the plot
+            plt.tight_layout()
+            plt.show()
+
+        if raw:
+            return response
+        
+        
 
     def get_premium_index_price_kline(self, **kwargs):
         """Retrieve the premium index price kline data. Charts are returned in groups based on the requested interval.
