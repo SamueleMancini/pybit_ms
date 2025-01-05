@@ -169,6 +169,9 @@ class Trade_client:
                 dict: An empty dict if there are no orders (and `raw` is False).
                 list: If `return_list` is True, returns the processed open orders as a list of dicts.
                 None: If neither `raw` nor `return_list` is True, displays a styled DataFrame in a Jupyter environment.
+            
+            Note:
+                https://bybit-exchange.github.io/docs/v5/order/open-order
             """
 
             def is_not_zero(value):
@@ -298,9 +301,12 @@ class Trade_client:
 
                 # Convert timestamp to human-readable
                 if 'createdTime' in filtered:
-                    filtered['createdTime'] = pd.to_datetime(
-                        int(filtered['createdTime']), unit='ms'
-                    ).strftime('%Y-%m-%d %H:%M:%S')
+                    try:
+                        filtered['createdTime'] = pd.to_datetime(
+                            int(filtered['createdTime']), unit='ms'
+                        ).strftime('%Y-%m-%d %H:%M:%S')
+                    except (ValueError, TypeError):
+                        filtered['createdTime'] = '-'
 
                 # Take-profit logic
                 if is_not_zero(filtered['takeProfit']) or is_not_zero(filtered['tpLimitPrice']):
@@ -363,18 +369,6 @@ class Trade_client:
             html = styled_df._repr_html_()
             display_html(html, raw=True)
             return None
-
-
-
-
-
-
-
-
-
-
-
-
 
 
     def cancel_all_orders(self, **kwargs):
@@ -645,41 +639,232 @@ class Trade_client:
             query=kwargs,
             auth=True,
         )
-    
-    def get_executions(self, max_pages=None, **kwargs):
+
+
+    def get_executions(self,
+        category,
+        symbol=None,
+        base_coin=None,
+        execution_type=None,
+        order_id=None,
+        order_link_id=None,
+        max_pages=None,
+        raw=False,
+        return_list=False,
+        **kwargs
+    ):
         """
-        Query users' execution records, sorted by execTime in descending order.
+        Query the user's execution records, sorted by `execTime` in descending order.
+        For Classic spot, they are sorted by `execId` in descending order.
 
-        Required args:
-            category (string):
-                - Unified account: "spot", "linear", "option"
-                - Normal account: "linear", "inverse"
+        Args:
+            category (str):
+                - Unified account: "spot", "linear", "inverse", "option"
+                - Normal account: "spot", "linear", "inverse"
+            symbol (str, optional): Symbol name, e.g., "BTCUSDT" (uppercase).
+            base_coin (str, optional): Base coin, e.g., "BTC".
+            execution_type (str, optional): Filter by execution type, e.g., "Trade" or "Funding".
+            order_id (str, optional): Filter by a specific order ID.
+            order_link_id (str, optional): Filter by a client-provided order ID.
+            max_pages (int, optional): If provided, fetch multiple pages up to this limit.
+            raw (bool, optional): If True, returns the raw JSON response (for either single or multiple pages).
+            return_list (bool, optional): If True, returns a combined list of execution records.
+            **kwargs: Additional query parameters (e.g., symbol, startTime, endTime, limit).
 
-        https://bybit-exchange.github.io/docs/v5/order/execution
+        Returns:
+            dict | list | None: 
+                - If `raw=True` and `max_pages` is None, returns the raw dict response from Bybit.
+                - If `raw=True` and `max_pages` is provided, returns a raw list of pages combined.
+                - If `max_pages=None` and `raw=False`, returns a dict if no records, or displays 
+                  a styled HTML DataFrame of execution records.
+                - If `return_list=True` and there are multiple pages, returns a combined Python list.
+                - Otherwise, displays the styled HTML DataFrame and returns None.
 
-        :param max_pages: (int) If provided, fetch multiple pages up to this limit.
-        :param kwargs: Additional query parameters (e.g., symbol, startTime, endTime, limit).
-        :return:
-            - A single Bybit response dict if max_pages is None.
-            - A combined list of execution records if max_pages is specified.
+        Note:
+            For a more thorough explanation, refer to:
+            https://bybit-exchange.github.io/docs/v5/order/execution
         """
+
+        def is_not_zero(value):
+            """Check if a value is numeric and not zero."""
+            try:
+                num = float(value)
+                return num != 0
+            except ValueError:
+                return False
+
+        def format_with_spaces(value):
+            """
+            Format numeric values to have commas replaced by spaces,
+            e.g., 1,234.56 -> 1 234.56.
+            Only applies if `value` is numeric.
+            """
+            try:
+                num = float(value)
+                # If the number is an integer, display it as an integer (e.g., 100.0 -> 100).
+                if num.is_integer():
+                    num = int(num)
+
+                # Insert thousands separators (replacing commas with spaces) if num is large.
+                if num > 99999:
+                    formatted = f"{num:,}".replace(",", " ")
+                else:
+                    formatted = str(num)
+            except ValueError:
+                formatted = value
+            return formatted
+
+        def format_dashboard(df, red='Ask', green='Bid', lime='Value'):
+            """
+            Apply custom styling to a pandas DataFrame for display in a Jupyter environment.
+            """
+            def style_specific_cell(row):
+                styles = []
+                for col_name in row.keys():
+                    if green in col_name:
+                        styles.append(
+                            'background-color: lightgreen; color: black; font-weight: bold;'
+                        )
+                    elif red in col_name:
+                        styles.append(
+                            'background-color: salmon; color: black; font-weight: bold;'
+                        )
+                    elif lime in col_name:
+                        styles.append('background-color: black; color: lime')
+                    else:
+                        styles.append('background-color: black')
+                return styles
+
+            styled = df.style.apply(style_specific_cell, axis=1)
+
+            # Right-align columns
+            styled = styled.set_properties(**{'text-align': 'right'})
+
+            # Add a border and control table sizing
+            styled = styled.set_table_attributes(
+                'style="font-size: 12px; border: 2px solid black;"'
+            )
+
+            # Numeric formatting
+            styled = styled.format(format_with_spaces)
+
+            header_styles = [
+                {
+                    'selector': 'caption',
+                    'props': [
+                        ('color', 'white'),
+                        ('font-size', '16px'),
+                        ('font-weight', 'bold'),
+                        ('text-align', 'center'),
+                        ('caption-side', 'top')
+                    ]
+                }
+            ]
+            styled = styled.set_table_styles(header_styles)
+
+            return styled
+
+        # Build the request parameters
         path = f"{self.endpoint}{Trade.GET_EXECUTIONS}"
+        kwargs["category"] = category
+        kwargs["symbol"] = symbol
+        kwargs["baseCoin"] = base_coin
+        kwargs["execType"] = execution_type
+        kwargs["orderId"] = order_id
+        kwargs["orderLinkId"] = order_link_id
 
-        if max_pages:
-            return self._http_manager._submit_paginated_request(
+        # If max_pages is set, use the paginated endpoint
+        if max_pages is not None:
+            data_list = self._http_manager._submit_paginated_request(
                 method="GET",
                 path=path,
                 query=kwargs,
                 auth=True,
-                max_pages=max_pages,
+                max_pages=max_pages
             )
         else:
-            return self._http_manager._submit_request(
+            # Else, make a single request
+            response = self._http_manager._submit_request(
                 method="GET",
                 path=path,
                 query=kwargs,
                 auth=True,
             )
+
+            # If raw response is requested, return it directly
+            if raw:
+                return response
+
+            data_list = response.get('result', {}).get('list', [])
+            if not data_list:
+                # If the list is empty, return an empty dictionary
+                return {}
+
+        # If raw is requested (and we had multiple pages), return the combined data_list
+        if raw:
+            return data_list
+
+        # Filter and transform each item in data_list
+        keys_to_keep = [
+            'symbol', 'orderType', 'execType', 'side', 'execPrice', 'orderQty',
+            'execQty', 'leavesQty', 'closedSize', 'execFee', 'feeCurrency',
+            'orderLinkId', 'orderId', 'execTime'
+        ]
+
+        for idx, item in enumerate(data_list):
+            filtered = {k: item[k] for k in keys_to_keep if k in item}
+
+            # Convert timestamp to human-readable format if present
+            if 'execTime' in filtered:
+                try:
+                    filtered['execTime'] = pd.to_datetime(
+                        int(filtered['execTime']), unit='ms'
+                    ).strftime('%Y-%m-%d %H:%M:%S')
+                except (ValueError, TypeError):
+                    filtered['execTime'] = '-'
+
+            # Combine execType and orderType
+            if 'execType' in filtered and 'orderType' in filtered:
+                filtered['execType'] = f"{filtered['execType']} ({filtered['orderType']})"
+            filtered.pop('orderType', None)
+
+            # Show "-" if leavesQty or closedSize is zero
+            if not is_not_zero(filtered.get('leavesQty', 0)):
+                filtered['leavesQty'] = '-'
+            if not is_not_zero(filtered.get('closedSize', 0)):
+                filtered['closedSize'] = '-'
+
+            # Format the execFee
+            if 'execFee' in filtered and 'feeCurrency' in filtered:
+                try:
+                    exec_fee_val = float(filtered['execFee'])
+                    filtered['execFee'] = f"{exec_fee_val:.4f} {filtered['feeCurrency']}"
+                except (ValueError, TypeError):
+                    filtered['execFee'] = f"0.0000 {filtered['feeCurrency']}"
+            filtered.pop('feeCurrency', None)
+
+            if 'orderLinkId' in filtered:
+                filtered['orderLinkId'] = f"link:\n{filtered['orderLinkId']}"
+            if 'orderId' in filtered:
+                filtered['orderId'] = f"id:\n{filtered['orderId']}"
+
+            data_list[idx] = filtered
+
+        # Decide on return format
+        if return_list:
+            return data_list
+
+        df = pd.DataFrame(data_list)
+
+        # Rename 'leavesQty' to 'unfilledQty' for clarity
+        if 'leavesQty' in df.columns:
+            df.rename(columns={'leavesQty': 'unfilledQty'}, inplace=True)
+
+        styled_df = format_dashboard(df).set_caption("Executed Orders")
+        html = styled_df._repr_html_()
+        display_html(html, raw=True)
+        return None
+    
 
     def get_closed_pnl(self, max_pages=None, **kwargs):
         """
