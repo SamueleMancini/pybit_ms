@@ -188,18 +188,54 @@ class Account_client:
             query=kwargs,
             auth=True,
         )
+    
 
-    def get_account_info(self, **kwargs):
+    def get_account_info(self, raw=False):
         """
-        Query the margin mode configuration of the account.
-        https://bybit-exchange.github.io/docs/v5/account/account-info
+        Query account information (e.g., margin mode, account mode).
+
+        Args:
+            raw (bool, optional): If True, returns the raw API response. Defaults to False.
+
+        Returns:
+            tuple | dict:
+                - If `raw=True`, returns the raw response (dict).
+                - Otherwise, returns a tuple of (account_status, margin_mode) where
+                  `account_status` is a descriptive string for the unifiedMarginStatus,
+                  and `margin_mode` is the margin mode as reported by Bybit.
+
+        Note:
+            For more details, see
+            https://bybit-exchange.github.io/docs/v5/account/account-info
         """
-        return self._http_manager._submit_request(
+
+        response = self._http_manager._submit_request(
             method="GET",
             path=f"{self.endpoint}{Account.GET_ACCOUNT_INFO}",
-            query=kwargs,
             auth=True,
         )
+
+        # If raw output is requested, return the full response
+        if raw:
+            return response
+
+        # Map the unifiedMarginStatus to a human-readable description
+        accounts_dict = {
+            1: "Classic account",
+            3: "Unified trading account 1.0",
+            4: "Unified trading account 1.0 (pro version)",
+            5: "Unified trading account 2.0",
+            6: "Unified trading account 2.0 (pro version)"
+        }
+
+        result = response.get('result', {})
+        status_key = result.get('unifiedMarginStatus', '')
+        account_status = accounts_dict.get(status_key, "Unknown")
+
+        margin_mode = result.get('marginMode', '')
+
+        return (account_status, margin_mode)
+
 
     def get_transaction_log(self, max_pages=None, **kwargs):
         """

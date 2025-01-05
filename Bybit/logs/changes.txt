@@ -3,10 +3,23 @@ Samu:
         get_ticker():
             Added possibility to display html for jupyter notebooks with relevant info, possibility to display raw request response,
             or display float value of ticker.
+            
     Trade:
         get_open_orders():
             Added possibility to display html pandas dataframe for jupyter notebooks with relevant fields for open orders, 
             possibility to display raw request response, or display simple list of all open orders.
+        
+        get_executions():
+            Added possibility to display html pandas dataframe for jupyter notebooks with relevant fields for executed orders, 
+            possibility to display raw request response, or display simple list of all open orders.
+        
+        get_positions():
+            Added possibility to display html pandas dataframe for jupyter notebooks with relevant fields for open positions, 
+            possibility to display raw request response, or display simple list of all open orders.
+    
+    Account:
+        get_account_info():
+            Added possibility to display human readable type of account and type of margin mode, or raw request response.
 
 
 
