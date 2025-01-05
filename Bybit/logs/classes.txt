@@ -1,15 +1,15 @@
-trade/position:
+trade:
     PLACE_ORDER
     AMEND_ORDER
     CANCEL_ORDER
-    GET_OPEN_ORDERS
+    GET_OPEN_ORDERS                                         X
     CANCEL_ALL_ORDERS
     GET_ORDER_HISTORY
     BATCH_PLACE_ORDER
     BATCH_AMEND_ORDER
     BATCH_CANCEL_ORDER
-    GET_POSITIONS
-    GET_EXECUTIONS
+    GET_POSITIONS                                           X
+    GET_EXECUTIONS                                          X
     GET_CLOSED_PNL
 
     GET_BORROW_QUOT
@@ -19,7 +19,7 @@ trade/position:
     SET_TRADING_STOP
     SET_AUTO_ADD_MARGIN
 
-spot_margin/spot_leverage/institutional_loan:
+margin:
     TOGGLE_MARGIN_TRADE
     SET_LEVERAGE
     VIP_MARGIN_DATA
@@ -46,10 +46,10 @@ spot_margin/spot_leverage/institutional_loan:
     GET_REPAYMENT_ORDERS
     GET_LTV
 
-asset/account:
-    GET_WALLET_BALANCE
+account:
+    GET_WALLET_BALANCE                                        X
     GET_SINGLE_COIN_BALANCE
-    GET_ACCOUNT_INFO
+    GET_ACCOUNT_INFO                                          X
     GET_COIN_EXCHANGE_RECORDS
     GET_TRANSACTION_LOG
     GET_CONTRACT_TRANSACTION_LOG
@@ -75,7 +75,7 @@ market:
     GET_PREMIUM_INDEX_PRICE_KLINE
     GET_INSTRUMENTS_INFO
     GET_ORDERBOOK
-    GET_TICKERS
+    GET_TICKERS                                             X
     GET_FUNDING_RATE_HISTORY
     GET_PUBLIC_TRADING_HISTORY
     GET_OPEN_INTEREST
