@@ -46,7 +46,7 @@ class Market_client:
             path=f"{self.endpoint}{Market.GET_SERVER_TIME}",
         )
 
-    def get_kline(self, category: str, coin1: str, coin2: str, interval: str, save_csv=False, csv_filename=None, show_link=False, plot=False, raw=True, **kwargs) -> dict:
+    def get_kline(self, category: str, coin1: str, coin2: str, interval: str, save_csv=False, csv_filename=None, show_link=False, plot=False, raw=False, price_type="close", **kwargs) -> dict:
         """Query the kline data. Charts are returned in groups based on the requested interval.
 
         Required args:
@@ -59,7 +59,8 @@ class Market_client:
             csv_filename (str): Name of the CSV file to save data.
             show_link (bool): If True, provides a link to the Bybit Kline page.
             plot(bool): If True, plots close price and volume for available data.
-            raw (bool): Whether to return the raw API response.
+            raw (bool): If True, returns the raw API response, else formatted response (list of the price_type).
+            price_type (str): Type of price to return in the formatted response. open, high, low, close
             **kwargs: Additional query parameters for the API request.
 
         https://bybit-exchange.github.io/docs/v5/market/kline
@@ -127,10 +128,13 @@ class Market_client:
 
         if raw:
             return response
+        else:
+            mapping = {'open': 1, 'high': 2, 'low': 3, 'close': 4}
+            return [row[mapping[price_type]] for row in response['result']['list']]
         
 
 
-    def get_mark_price_kline(self, category: str, coin1: str, coin2: str, interval: str, save_csv=False, csv_filename=None, plot=False, raw=True, **kwargs):
+    def get_mark_price_kline(self, category: str, coin1: str, coin2: str, interval: str, save_csv=False, csv_filename=None, plot=False, raw=False, price_type="close",  **kwargs):
         """Query the mark price kline data. Charts are returned in groups based on the requested interval.
 
         Required args:
@@ -142,7 +146,8 @@ class Market_client:
             save_csv (bool): If True, saves the Kline data as a CSV file.
             csv_filename (str): Name of the CSV file to save data.
             plot(bool): If True, plots close price and volume for available data.
-            raw (bool): Whether to return the raw API response.
+            raw (bool): If True, returns the raw API response, else formatted response (list of the price_type).
+            price_type (str): Type of price to return in the formatted response. open, high, low, close
             **kwargs: Additional query parameters for the API request.
 
         https://bybit-exchange.github.io/docs/v5/market/mark-kline
@@ -200,8 +205,11 @@ class Market_client:
 
         if raw:
             return response
+        else:
+            mapping = {'open': 1, 'high': 2, 'low': 3, 'close': 4}
+            return [row[mapping[price_type]] for row in response['result']['list']]
 
-    def get_index_price_kline(self, category: str, coin1: str, coin2: str, interval: str, save_csv=False, csv_filename=None, plot=False, raw=True, **kwargs):
+    def get_index_price_kline(self, category: str, coin1: str, coin2: str, interval: str, save_csv=False, csv_filename=None, plot=False, raw=False, price_type="close", **kwargs):
         """Query the index price kline data. Charts are returned in groups based on the requested interval.
 
         Required args:
@@ -213,7 +221,8 @@ class Market_client:
             save_csv (bool): If True, saves the Kline data as a CSV file.
             csv_filename (str): Name of the CSV file to save data.
             plot(bool): If True, plots close price and volume for available data.
-            raw (bool): Whether to return the raw API response.
+            raw (bool): If True, returns the raw API response, else formatted response (list of the price_type).
+            price_type (str): Type of price to return in the formatted response. open, high, low, close
             **kwargs: Additional query parameters for the API request.
 
         https://bybit-exchange.github.io/docs/v5/market/index-kline
@@ -270,6 +279,10 @@ class Market_client:
 
         if raw:
             return response
+        else:
+            mapping = {'open': 1, 'high': 2, 'low': 3, 'close': 4}
+            return [row[mapping[price_type]] for row in response['result']['list']]
+
         
         
 
