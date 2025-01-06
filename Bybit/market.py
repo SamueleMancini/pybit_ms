@@ -85,7 +85,7 @@ class Market_client:
             # Write to CSV
             with open(csv_filename, mode='w', newline='') as file:
                 writer = csv.writer(file)
-                writer.writerow(['timestamp', 'open', 'high', 'low', 'close', 'volume', 'turnover'])  # Header
+                writer.writerow(['timestamp', 'open', 'high', 'low', 'close', 'volume', 'turnover']) 
                 writer.writerows(kline_data)
 
             print(f"Kline data saved to {csv_filename}")
@@ -108,10 +108,9 @@ class Market_client:
             # Convert columns to float for plotting
             df[['open', 'high', 'low', 'close', 'volume', 'turnover']] = df[['open', 'high', 'low', 'close', 'volume', 'turnover']].astype(float)
 
-            # Create subplots
             fig, ax1 = plt.subplots(2, 1, figsize=(8, 6), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
 
-            # Plot close price and high-low range
+            # Plot close price
             ax1[0].plot(df.index, df['close'], label='Close Price', color='blue')
             ax1[0].set_ylabel("Price (USDT)")
             ax1[0].set_title(f"Kline Data: Close Price & Volume")
@@ -123,7 +122,6 @@ class Market_client:
             ax1[1].set_xlabel("Time")
             ax1[1].legend()
 
-            # Show the plot
             plt.tight_layout()
             plt.show()
 
@@ -197,7 +195,6 @@ class Market_client:
             ax.set_title(f"Mark Price Kline Data: Close Price")
             ax.legend()
 
-            # Show the plot
             plt.tight_layout()
             plt.show()
 
@@ -238,7 +235,7 @@ class Market_client:
 
             # Extract data
             kline_data = response['result']['list']
-            csv_filename = csv_filename or f"{kwargs.get('symbol')}_mark_price_kline.csv"
+            csv_filename = csv_filename or f"{kwargs.get('symbol')}_index_price_kline.csv"
 
             # Write to CSV
             with open(csv_filename, mode='w', newline='') as file:
@@ -246,7 +243,7 @@ class Market_client:
                 writer.writerow(['timestamp', 'open', 'high', 'low', 'close'])
                 writer.writerows(kline_data)
 
-            print(f"Mark price kline data saved to {csv_filename}")
+            print(f"Index price kline data saved to {csv_filename}")
 
 
         
@@ -268,7 +265,6 @@ class Market_client:
             ax.set_title(f"Index Price Kline Data: Close Price")
             ax.legend()
 
-            # Show the plot
             plt.tight_layout()
             plt.show()
 

@@ -52,7 +52,9 @@ Mic:
         get_kline():
             Added possibility to display plot of closed price and volume for jupyter notebooks, possibiity to display raw request response,
             also to provide the link to the Bybit Kline page and possibilty to save the Kline data as a CSV file.
+
         get_mark_price_kline():
             Same as get_kline(), but without link available.
+            
         get_index_price_kline():
             Same as get_kline(), but without link available.
