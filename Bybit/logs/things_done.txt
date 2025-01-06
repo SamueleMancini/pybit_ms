@@ -1,6 +1,10 @@
 Samu:
     Trade:
-        place_order
+        place_order             X
+        place_spot_order        X
+        place_spot_order        X
+        place_spot_order        X
+        cancel_order            X
         cancel_all_orders
         get_open_orders         X
         get_executions          X

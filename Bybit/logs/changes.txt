@@ -16,6 +16,22 @@ Samu:
         get_positions():
             Added possibility to display html pandas dataframe for jupyter notebooks with relevant fields for open positions, 
             possibility to display raw request response, or display simple list of all open orders.
+        
+        place_order():
+            Added documentation explaining nearly all possible orders, funcs parameters and correct formatting of response.
+
+        place_spot_order():
+            Added documentation explaining all spot and margin orders, funcs parameters and correct formatting of response.
+
+        place_futures_order():
+            Added documentation explaining nearly all possible futures orders, funcs parameters and correct formatting of response.
+
+        place_conditional_order():
+            Added documentation explaining nearly all conditional orders, funcs parameters and correct formatting of response.
+
+        close_order():
+            Added documentation explaining how to close linear positions, their funcs parameters and correct formatting of response.
+            
     
     Account:
         get_account_info():

@@ -35,64 +35,592 @@ class Trade_client:
         self._http_manager = http_manager
         self.endpoint = http_manager.endpoint
 
-    def place_order(self, category, symbol, side, orderType, qty, **kwargs):
-        """This method supports to create the order for Spot, Margin trading, USDT perpetual, USDC perpetual, USDC futures, Inverse Futures and Options.
-
-        Supported order type (orderType):
-            Limit order: orderType=Limit, it is necessary to specify order qty and price.
-            Market order: orderType=Market, execute at the best price in the Bybit market until the transaction is completed. When selecting a market order, the "price" can be empty. In the futures trading system, in order to protect the serious slippage of the market order, the Bybit trading system will convert the market order into a limit order for matching. will be cancelled. The slippage threshold refers to the percentage that the order price deviates from the latest transaction price. The current threshold is set to 3% for BTC contracts and 5% for other contracts.
-
-        Supported timeInForce strategy:
-            GTC
-            IOC
-            FOK
-            PostOnly: If the order would be filled immediately when submitted, it will be cancelled. The purpose of this is to protect your order during the submission process. If the matching system cannot entrust the order to the order book due to price changes on the market, it will be cancelled. For the PostOnly order type, the quantity that can be submitted in a single order is more than other types of orders, please refer to the parameter lotSizeFilter > postOnlyMaxOrderQty in the instruments-info endpoint.
-
-        How to create conditional order:
-            When submitting an order, if triggerPrice is set, the order will be automatically converted into a conditional order. In addition, the conditional order does not occupy the margin. If the margin is insufficient after the conditional order is triggered, the order will be cancelled.
-
-        Take profit / Stop loss: You can set TP/SL while placing orders. Besides, you could modify the position's TP/SL.
-
-        Order quantity: The quantity of perpetual contracts you are going to buy/sell. For the order quantity, Bybit only supports positive number at present.
-
-        Order price: Place a limit order, this parameter is required. If you have position, the price should be higher than the liquidation price. For the minimum unit of the price change, please refer to the priceFilter > tickSize field in the instruments-info endpoint.
-
-        orderLinkId: You can customize the active order ID. We can link this ID to the order ID in the system. Once the active order is successfully created, we will send the unique order ID in the system to you. Then, you can use this order ID to cancel active orders, and if both orderId and orderLinkId are entered in the parameter input, Bybit will prioritize the orderId to process the corresponding order. Meanwhile, your customized order ID should be no longer than 36 characters and should be unique.
-
-        Open orders up limit:
-            Perps & Futures:
-                a) Each account can hold a maximum of 500 active orders simultaneously per symbol.
-                b) conditional orders: each account can hold a maximum of 10 active orders simultaneously per symbol.
-            Spot: 500 orders in total, including a maximum of 30 open TP/SL orders, a maximum of 30 open conditional orders for each symbol per account
-            Option: a maximum of 50 open orders per account
-
-        Rate limit:
-            Please refer to rate limit table. If you need to raise the rate limit, please contact your client manager or submit an application via here
-
-        Risk control limit notice:
-            Bybit will monitor on your API requests. When the total number of orders of a single user (aggregated the number of orders across main account and sub-accounts) within a day (UTC 0 - UTC 24) exceeds a certain upper limit, the platform will reserve the right to remind, warn, and impose necessary restrictions. Customers who use API default to acceptance of these terms and have the obligation to cooperate with adjustments.
-        
-        Required args:
-            category (string): Product type Unified account: linear, inverse, spot, option. Normal account: linear, inverse, spot. Please note that category is not involved with business logic
-            symbol (string): Symbol name
-            side (string): Buy, Sell
-            orderType (string): Market, Limit
-            qty (string): Order quantity
-        
-        https://bybit-exchange.github.io/docs/v5/order/create-order
+    def place_order(
+        self,
+        category: str,
+        symbol: str,
+        side: str,
+        order_type: str,
+        qty: str,
+        price: str = None,
+        time_in_force: str = None,
+        market_unit: str = "baseCoin",
+        is_leverage: int = 0,
+        trigger_price: str = None,
+        trigger_by: str = None,
+        position_idx: int = None,
+        order_link_id: str = None,
+        take_profit: str = None,
+        stop_loss: str = None,
+        tp_trigger_by: str = None,
+        trigger_direction: int = None,
+        sl_trigger_by: str = None,
+        tp_limit_price: str = None,
+        sl_limit_price: str = None,
+        tp_order_type: str = None,
+        sl_order_type: str = None,
+        tpsl_mode: str = None,
+        reduce_only: bool = False,
+        raw: bool = False,
+        **kwargs
+    ) -> str:
         """
+        Create an order for Spot, Margin, Perpetual (USDT/USDC/Inverse), Futures, or Options.
+
+        Supported order types:
+            - Limit order (`order_type="Limit"`): specify order quantity and price.
+            - Market order (`order_type="Market"`): executes at the best price until filled.
+              In Bybit, large market orders are internally converted to limit orders at a 
+              certain slippage threshold to protect users from excessive slippage.
+        
+        Supported `timeInForce` strategies:
+            - GTC (Good Till Cancelled)
+            - IOC (Immediate or Cancel)
+            - FOK (Fill or Kill)
+            - PostOnly (ensures the order doesn't immediately match; canceled otherwise)
+
+        Conditional orders (only for linear contracts):
+            - If `trigger_price` is set, the order becomes a conditional order. 
+            - Conditional orders do not occupy margin until triggered.
+
+        Take profit / Stop loss:
+            - Set `take_profit` and/or `stop_loss` at time of order placement.
+            - Optionally configure limit-based TP/SL with `tp_limit_price`/`sl_limit_price`.
+
+        Order quantity & price:
+            - `qty` must be a positive number (string format accepted by Bybit).
+            - If placing a limit order, `price` is required unless using a market order.
+            - The price must respect the instrument's tick size (see `priceFilter` in instruments info).
+
+        Rate limit & risk control:
+            - Bybit imposes daily and per-symbol limits on open orders, conditional orders,
+              and total order counts. Exceeding these may result in warnings or restrictions.
+
+        Args:
+            category (str): Product type. Unified account: "linear", "inverse", "spot", "option".
+                Normal account: "linear", "inverse", "spot".
+            symbol (str): Symbol name (e.g., "BTCUSDT").
+            side (str): "Buy" or "Sell".
+            order_type (str): "Market" or "Limit".
+            qty (str): Quantity to trade (as a string; Bybit accepts string inputs).
+            price (str, optional): Price for limit orders. Defaults to None.
+            time_in_force (str, optional): One of "GTC", "IOC", "FOK", "PostOnly". 
+                If None, defaults to "IOC" for Market and "GTC" for Limit orders.
+            market_unit (str, optional): If placing a spot trade, 
+                "baseCoin" (quantity is in base asset units) or 
+                "quoteCoin" (quantity is in quote asset units). Defaults to "baseCoin".
+            is_leverage (int, optional): Leverage flag. 0 for off, 1 for on. Defaults to 0.
+            trigger_price (str, optional): Price at which a conditional (stop) order should trigger.
+            trigger_by (str, optional): Mechanism for triggering (e.g., "LastPrice", "MarkPrice").
+            position_idx (int, optional): Position index for multi-position mode. 
+                1 for one-way, 2/3 for hedge mode.
+            order_link_id (str, optional): Custom client-defined order ID. 
+                Maximum length is 36 characters.
+            take_profit (str, optional): TP price. If set, a TP order will be placed.
+            stop_loss (str, optional): SL price. If set, an SL order will be placed.
+            tp_trigger_by (str, optional): Price mechanism for triggering take profit.
+            sl_trigger_by (str, optional): Price mechanism for triggering stop loss.
+            tp_limit_price (str, optional): TP limit price if `tp_order_type="Limit"`.
+            sl_limit_price (str, optional): SL limit price if `sl_order_type="Limit"`.
+            tp_order_type (str, optional): "Market" or "Limit" for the TP order type.
+            sl_order_type (str, optional): "Market" or "Limit" for the SL order type.
+            tpsl_mode (str, optional): E.g., "Full" or "Partial" for TP/SL behavior.
+            reduce_only (bool, optional): Whether the order should only reduce a position. 
+                Defaults to False.
+            raw (bool, optional): If True, return raw Bybit API response (dict). 
+                Otherwise, return a string with the order ID or link ID. Defaults to False.
+            **kwargs: Additional parameters recognized by Bybit's API (e.g., "orderIv" for options).
+
+        Returns:
+            str | dict:
+                - If `raw=True`, returns the raw response (dict).
+                - Otherwise, returns a string:
+                  - If `order_link_id` is provided, returns `"orderLinkId: <...>"`
+                  - Otherwise, returns `"orderId: <...>"`.
+
+        Note:
+            https://bybit-exchange.github.io/docs/v5/order/create-order
+        """
+        # If no time_in_force was provided, choose defaults based on order_type
+        if time_in_force is None:
+            if order_type.lower() == 'market':
+                time_in_force = 'IOC'
+            else:
+                time_in_force = 'GTC'
+
+        # Build the payload
         kwargs["category"] = category
         kwargs["symbol"] = symbol
         kwargs["side"] = side
-        kwargs["orderType"] = orderType
+        kwargs["orderType"] = order_type
         kwargs["qty"] = qty
-        print(kwargs)
-        return self._http_manager._submit_request(
+        kwargs["price"] = price
+        kwargs["timeInForce"] = time_in_force
+        kwargs["marketUnit"] = market_unit
+        kwargs["isLeverage"] = is_leverage
+        kwargs["triggerPrice"] = trigger_price
+        kwargs["triggerBy"] = trigger_by
+        kwargs["triggerDirection"] = trigger_direction
+        kwargs["positionIdx"] = position_idx
+        kwargs["orderLinkId"] = order_link_id
+        kwargs["takeProfit"] = take_profit
+        kwargs["stopLoss"] = stop_loss
+        kwargs["tpTriggerBy"] = tp_trigger_by
+        kwargs["slTriggerBy"] = sl_trigger_by
+        kwargs["tpLimitPrice"] = tp_limit_price
+        kwargs["slLimitPrice"] = sl_limit_price
+        kwargs["tpOrderType"] = tp_order_type
+        kwargs["slOrderType"] = sl_order_type
+        kwargs["tpslMode"] = tpsl_mode
+        kwargs["reduceOnly"] = reduce_only
+
+        # Send the request
+        response = self._http_manager._submit_request(
             method="POST",
             path=f"{self.endpoint}{Trade.PLACE_ORDER}",
             query=kwargs,
             auth=True,
         )
+
+        # Return raw response if requested
+        if raw:
+            return response
+
+        # If order_link_id was provided, return that
+        if order_link_id is not None:
+            link_id = response.get('result', {}).get('orderLinkId', [])
+            return f"orderLinkId: {link_id}"
+
+        # Otherwise, return system-generated order ID
+        order_id = response.get('result', {}).get('orderId', [])
+        return f"orderId: {order_id}"
+    
+    def place_spot_order(
+        self,
+        symbol: str,
+        side: str,
+        order_type: str,
+        qty: str,
+        price: str = None,
+        category: str = "spot",
+        time_in_force: str = None,
+        market_unit: str = "baseCoin",
+        is_leverage: int = 0,
+        order_link_id: str = None,
+        take_profit: str = None,
+        stop_loss: str = None,
+        tp_limit_price: str = None,
+        sl_limit_price: str = None,
+        tp_order_type: str = None,
+        sl_order_type: str = None,
+        raw: bool = False,
+        **kwargs
+    ) -> str:
+        """
+        Place a spot order (Market or Limit) on Bybit. Optionally configure 
+        margin, take-profit/stop-loss and additional parameters.
+
+        Args:
+            symbol (str): Symbol name, e.g., "BTCUSDT".
+            side (str): "Buy" or "Sell".
+            order_type (str): "Market" or "Limit".
+            qty (str): Order quantity as a string (Bybit expects string inputs).
+            price (str, optional): Limit price. Required if `order_type="Limit"`.
+                                  Defaults to None.
+            category (str, optional): Product category. By default "spot".
+            time_in_force (str, optional): Order execution constraint. One of:
+                "GTC", "IOC", "FOK", "PostOnly". If None, defaults to:
+                - "IOC" if `order_type="Market"`
+                - "GTC" otherwise.
+            market_unit (str, optional): If placing a spot trade, indicates the unit
+                of quantity ("baseCoin" or "quoteCoin"). Defaults to "baseCoin".
+            is_leverage (int, optional): Leverage flag (0 for off, 1 for on). Defaults to 0.
+            order_link_id (str, optional): Custom client-defined order ID.
+            take_profit (str, optional): If set, places a take profit (market or limit) order.
+            stop_loss (str, optional): If set, places a stop loss (market or limit) order.
+            tp_limit_price (str, optional): Limit price for TP if `tp_order_type="Limit"`.
+            sl_limit_price (str, optional): Limit price for SL if `sl_order_type="Limit"`.
+            tp_order_type (str, optional): "Market" or "Limit" for TP order type.
+            sl_order_type (str, optional): "Market" or "Limit" for SL order type.
+            raw (bool, optional): If True, return the raw response (dict).
+            **kwargs: Additional parameters for Bybit's API.
+
+        Returns:
+            str | dict:
+                - If `raw=True`, returns the raw API response (dict).
+                - Otherwise, returns a string describing either:
+                  "orderLinkId: <...>" or "orderId: <...>" based on
+                  whether `order_link_id` was provided.
+        
+        Notes:
+              https://bybit-exchange.github.io/docs/v5/order/create-order
+        """
+
+        # Assign a default time_in_force if not provided
+        if time_in_force is None:
+            if order_type.lower() == 'market':
+                time_in_force = 'IOC'
+            else:
+                time_in_force = 'GTC'
+
+        # Build request parameters
+        kwargs["category"] = category
+        kwargs["symbol"] = symbol
+        kwargs["side"] = side
+        kwargs["orderType"] = order_type
+        kwargs["qty"] = qty
+        kwargs["price"] = price
+        kwargs["timeInForce"] = time_in_force
+        kwargs["marketUnit"] = market_unit
+        kwargs["isLeverage"] = is_leverage
+        kwargs["orderLinkId"] = order_link_id
+        kwargs["takeProfit"] = take_profit
+        kwargs["stopLoss"] = stop_loss
+        kwargs["tpLimitPrice"] = tp_limit_price
+        kwargs["slLimitPrice"] = sl_limit_price
+        kwargs["tpOrderType"] = tp_order_type
+        kwargs["slOrderType"] = sl_order_type
+
+        # Submit the order
+        response = self._http_manager._submit_request(
+            method="POST",
+            path=f"{self.endpoint}{Trade.PLACE_ORDER}",
+            query=kwargs,
+            auth=True,
+        )
+
+        # Return raw response if requested
+        if raw:
+            return response
+
+        # If orderLinkId was provided, return a corresponding message
+        if order_link_id is not None:
+            return f"orderLinkId: {response.get('result', {}).get('orderLinkId', [])}"
+
+        # Otherwise, return the system-generated orderId
+        return f"orderId: {response.get('result', {}).get('orderId', [])}"
+    
+
+    def place_futures_order(
+        self,
+        symbol: str,
+        side: str,
+        order_type: str,
+        qty: str,
+        price: str = None,
+        category: str = "linear",
+        time_in_force: str = None,
+        market_unit: str = "baseCoin",
+        position_idx: int = None,
+        order_link_id: str = None,
+        take_profit: str = None,
+        stop_loss: str = None,
+        tp_trigger_by: str = None,
+        sl_trigger_by: str = None,
+        tp_limit_price: str = None,
+        sl_limit_price: str = None,
+        tp_order_type: str = None,
+        sl_order_type: str = None,
+        tpsl_mode: str = None,
+        raw: bool = False,
+        **kwargs
+    ) -> str:
+        """
+        Place a futures order (Linear or otherwise) on Bybit.
+
+        Args:
+            symbol (str): Symbol name (e.g., "BTCUSDT").
+            side (str): "Buy" or "Sell".
+            order_type (str): "Market" or "Limit".
+            qty (str): Order quantity (as a string; Bybit expects string inputs).
+            price (str, optional): Limit price for a limit order. Defaults to None.
+            category (str, optional): Product category, "linear" by default.
+            time_in_force (str, optional): One of "GTC", "IOC", "FOK", "PostOnly".
+                If None, defaults to "IOC" for market orders, "GTC" otherwise.
+            market_unit (str, optional): Either "baseCoin" or "quoteCoin" to denote
+                how quantity is specified. Defaults to "baseCoin".
+            position_idx (int, optional): Position index if in hedge mode 
+                (1 for one-way, 2/3 for hedge side). Defaults to None.
+            order_link_id (str, optional): User-defined unique identifier for the order
+                (max length 36 characters). Defaults to None.
+            take_profit (str, optional): Take profit price if desired. Defaults to None.
+            stop_loss (str, optional): Stop loss price if desired. Defaults to None.
+            tp_trigger_by (str, optional): Trigger price mechanism for TP ("LastPrice", "MarkPrice", etc.).
+            sl_trigger_by (str, optional): Trigger price mechanism for SL ("LastPrice", "MarkPrice", etc.).
+            tp_limit_price (str, optional): If `tp_order_type="Limit"`, specify this limit price. 
+            sl_limit_price (str, optional): If `sl_order_type="Limit"`, specify this limit price.
+            tp_order_type (str, optional): "Market" or "Limit" for the take profit order.
+            sl_order_type (str, optional): "Market" or "Limit" for the stop loss order.
+            tpsl_mode (str, optional): "Full" or "Partial" to describe the position-close mode.
+            raw (bool, optional): If True, returns the raw response (dict). Otherwise, returns 
+                a string indicating orderId or orderLinkId.
+            **kwargs: Any additional parameters supported by Bybit's API.
+
+        Returns:
+            str | dict:
+                - If `raw=True`, returns the raw API response (dict).
+                - Otherwise, a string either:
+                  "orderLinkId: <...>" (if `order_link_id` is provided) or
+                  "orderId: <...>" (Bybit's system-generated order ID).
+
+        Notes:
+              https://bybit-exchange.github.io/docs/v5/order/create-order
+        """
+
+        # Set a default time_in_force if not provided
+        if time_in_force is None:
+            if order_type.lower() == 'market':
+                time_in_force = 'IOC'
+            else:
+                time_in_force = 'GTC'
+
+        # Build the request parameters
+        kwargs["category"] = category
+        kwargs["symbol"] = symbol
+        kwargs["side"] = side
+        kwargs["orderType"] = order_type
+        kwargs["qty"] = qty
+        kwargs["price"] = price
+        kwargs["timeInForce"] = time_in_force
+        kwargs["marketUnit"] = market_unit
+        kwargs["positionIdx"] = position_idx
+        kwargs["orderLinkId"] = order_link_id
+        kwargs["takeProfit"] = take_profit
+        kwargs["stopLoss"] = stop_loss
+        kwargs["tpTriggerBy"] = tp_trigger_by
+        kwargs["slTriggerBy"] = sl_trigger_by
+        kwargs["tpLimitPrice"] = tp_limit_price
+        kwargs["slLimitPrice"] = sl_limit_price
+        kwargs["tpOrderType"] = tp_order_type
+        kwargs["slOrderType"] = sl_order_type
+        kwargs["tpslMode"] = tpsl_mode
+
+        # Send the request
+        response = self._http_manager._submit_request(
+            method="POST",
+            path=f"{self.endpoint}{Trade.PLACE_ORDER}",
+            query=kwargs,
+            auth=True,
+        )
+
+        # Return the raw response if requested
+        if raw:
+            return response
+
+        # If an orderLinkId was provided, return that
+        if order_link_id is not None:
+            return f"orderLinkId: {response.get('result', {}).get('orderLinkId', [])}"
+
+        # Otherwise, return the system-generated orderId
+        return f"orderId: {response.get('result', {}).get('orderId', [])}"
+    
+
+    def place_conditional_order(
+        self,
+        symbol: str,
+        side: str,
+        order_type: str,
+        qty: str,
+        price: str = None,
+        category: str = "linear",
+        time_in_force: str = None,
+        market_unit: str = "baseCoin",
+        trigger_price: str = None,
+        trigger_by: str = None,
+        trigger_direction: int = None,
+        position_idx: int = None,
+        order_link_id: str = None,
+        take_profit: str = None,
+        stop_loss: str = None,
+        tp_trigger_by: str = None,
+        sl_trigger_by: str = None,
+        tp_limit_price: str = None,
+        sl_limit_price: str = None,
+        tp_order_type: str = None,
+        sl_order_type: str = None,
+        tpsl_mode: str = None,
+        raw: bool = False,
+        **kwargs
+    ) -> str:
+        """
+        Place a conditional (stop) order on Bybit (only for `category="linear"`).
+
+        Args:
+            symbol (str): Symbol name, e.g., "BTCUSDT".
+            side (str): "Buy" or "Sell".
+            order_type (str): "Market" or "Limit".
+            qty (str): Order quantity (as a string; Bybit expects string inputs).
+            price (str, optional): Price for limit orders. Defaults to None.
+            category (str, optional): Product category. Defaults to "linear".
+            time_in_force (str, optional): One of "GTC", "IOC", "FOK", "PostOnly".
+                Defaults to "IOC" for `order_type="Market"`, otherwise "GTC".
+            market_unit (str, optional): Either "baseCoin" or "quoteCoin" 
+                to denote how quantity is specified. Defaults to "baseCoin".
+            trigger_price (str): Price at which the conditional order is triggered.
+            trigger_by (str): Mechanism to determine the trigger price (e.g., "MarkPrice", "LastPrice").
+            trigger_direction (int): Used to identify the expected direction of the conditional order.
+                1: triggered when market price rises to triggerPrice
+                2: triggered when market price falls to triggerPrice
+            position_idx (int, optional): Position index if in hedge mode (1 for one-way, 2/3 for hedge side).
+            order_link_id (str, optional): User-defined unique identifier for the order 
+                (max length 36 characters).
+            take_profit (str, optional): TP price if desired (set `tpsl_mode` accordingly).
+            stop_loss (str, optional): SL price if desired (set `tpsl_mode` accordingly).
+            tp_trigger_by (str, optional): Which price to follow for triggering TP ("LastPrice", "MarkPrice").
+            sl_trigger_by (str, optional): Which price to follow for triggering SL ("LastPrice", "MarkPrice").
+            tp_limit_price (str, optional): Limit price for TP if `tp_order_type="Limit"`.
+            sl_limit_price (str, optional): Limit price for SL if `sl_order_type="Limit"`.
+            tp_order_type (str, optional): "Market" or "Limit" for the TP order.
+            sl_order_type (str, optional): "Market" or "Limit" for the SL order.
+            tpsl_mode (str, optional): "Full" or "Partial". "Full" typically for a market-based TP/SL.
+            raw (bool, optional): If True, returns the raw API response (dict). Otherwise, a string 
+                indicating order ID or link ID. Defaults to False.
+            **kwargs: Additional parameters recognized by Bybit's API.
+
+        Returns:
+            str | dict:
+                - If `raw=True`, returns the raw API response (dict).
+                - Otherwise, returns either:
+                  "orderLinkId: <...>" if `order_link_id` is provided,
+                  or "orderId: <...>" if the system-generated order ID is used.
+
+        Notes:
+            - Conditional orders do not occupy margin until triggered.
+              https://bybit-exchange.github.io/docs/v5/order/create-order
+        """
+
+        # Determine a default time_in_force if not provided
+        if time_in_force is None:
+            if order_type.lower() == 'market':
+                time_in_force = 'IOC'
+            else:
+                time_in_force = 'GTC'
+
+        # Build the request parameters
+        kwargs["category"] = category
+        kwargs["symbol"] = symbol
+        kwargs["side"] = side
+        kwargs["orderType"] = order_type
+        kwargs["qty"] = qty
+        kwargs["price"] = price
+        kwargs["timeInForce"] = time_in_force
+        kwargs["marketUnit"] = market_unit
+        kwargs["triggerPrice"] = trigger_price
+        kwargs["triggerBy"] = trigger_by
+        kwargs["triggerDirection"] = trigger_direction
+        kwargs["positionIdx"] = position_idx
+        kwargs["orderLinkId"] = order_link_id
+        kwargs["takeProfit"] = take_profit
+        kwargs["stopLoss"] = stop_loss
+        kwargs["tpTriggerBy"] = tp_trigger_by
+        kwargs["slTriggerBy"] = sl_trigger_by
+        kwargs["tpLimitPrice"] = tp_limit_price
+        kwargs["slLimitPrice"] = sl_limit_price
+        kwargs["tpOrderType"] = tp_order_type
+        kwargs["slOrderType"] = sl_order_type
+        kwargs["tpslMode"] = tpsl_mode
+
+        # Send the request
+        response = self._http_manager._submit_request(
+            method="POST",
+            path=f"{self.endpoint}{Trade.PLACE_ORDER}",
+            query=kwargs,
+            auth=True,
+        )
+
+        # Return the raw response if requested
+        if raw:
+            return response
+
+        # If an orderLinkId was provided, return that
+        if order_link_id is not None:
+            return f"orderLinkId: {response.get('result', {}).get('orderLinkId', [])}"
+
+        # Otherwise, return the system-generated orderId
+        return f"orderId: {response.get('result', {}).get('orderId', [])}"
+    
+
+    def close_order(
+        self,
+        symbol: str,
+        side: str,
+        order_type: str,
+        qty: str,
+        price: str = None,
+        category: str = "linear",
+        time_in_force: str = None,
+        market_unit: str = "baseCoin",
+        order_link_id: str = None,
+        reduce_only: bool = True,
+        raw: bool = False,
+        **kwargs
+    ) -> str:
+        """
+        Close an open futures position on Bybit (only for `category="linear"`).
+
+        Args:
+            symbol (str): Symbol name (e.g., "BTCUSDT").
+            side (str): "Buy" or "Sell".
+            order_type (str): "Market" or "Limit".
+            qty (str): Quantity of the position to close, as a string.
+            price (str, optional): Limit price if `order_type="Limit"`. 
+                Defaults to None (not needed for market orders).
+            category (str, optional): Product category, defaults to "linear".
+            time_in_force (str, optional): One of "GTC", "IOC", "FOK", or "PostOnly".
+                If None, defaults to "IOC" if `order_type="market"`, else "GTC".
+            market_unit (str, optional): "baseCoin" or "quoteCoin". Defaults to "baseCoin".
+            order_link_id (str, optional): User-defined custom order ID. Defaults to None.
+            reduce_only (bool, optional): Whether the order should only reduce a position. 
+                Defaults to True.
+            raw (bool, optional): If True, returns the full Bybit response (dict). 
+                Otherwise, returns a string with the order ID or link ID. Defaults to False.
+            **kwargs: Additional query parameters recognized by Bybit's API.
+
+        Returns:
+            str | dict:
+                - If `raw=True`, returns the raw API response (dict).
+                - Otherwise, returns a string:
+                  - "orderLinkId: <...>" if `order_link_id` is provided, or
+                  - "orderId: <...>" if using the system-generated order ID.
+
+        Notes:
+              https://bybit-exchange.github.io/docs/v5/order/create-order
+        """
+
+        # Decide on time_in_force if not provided
+        if time_in_force is None:
+            if order_type.lower() == 'market':
+                time_in_force = 'IOC'
+            else:
+                time_in_force = 'GTC'
+
+        # Build the request parameters
+        kwargs["category"] = category
+        kwargs["symbol"] = symbol
+        kwargs["side"] = side
+        kwargs["orderType"] = order_type
+        kwargs["qty"] = qty
+        kwargs["price"] = price
+        kwargs["timeInForce"] = time_in_force
+        kwargs["marketUnit"] = market_unit
+        kwargs["orderLinkId"] = order_link_id
+        kwargs["reduceOnly"] = reduce_only
+
+        response = self._http_manager._submit_request(
+            method="POST",
+            path=f"{self.endpoint}{Trade.PLACE_ORDER}",
+            query=kwargs,
+            auth=True,
+        )
+
+        if raw:
+            return response
+
+        if order_link_id is not None:
+            return f"orderLinkId: {response.get('result', {}).get('orderLinkId', [])}"
+
+        return f"orderId: {response.get('result', {}).get('orderId', [])}"
+    
 
     def amend_order(self, **kwargs):
         """Unified account covers: Linear contract / Options
