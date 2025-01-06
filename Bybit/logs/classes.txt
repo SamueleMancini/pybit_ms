@@ -1,9 +1,9 @@
 trade:
-    PLACE_ORDER
+    PLACE_ORDER                                             X
     AMEND_ORDER
-    CANCEL_ORDER
+    CANCEL_ORDER                                            X
     GET_OPEN_ORDERS                                         X
-    CANCEL_ALL_ORDERS
+    CANCEL_ALL_ORDERS                                       X
     GET_ORDER_HISTORY
     BATCH_PLACE_ORDER
     BATCH_AMEND_ORDER

@@ -4,12 +4,12 @@ Samu:
         place_spot_order        X
         place_spot_order        X
         place_spot_order        X
-        cancel_order            X
-        cancel_all_orders
+        close_order             X
+        cancel_all_orders       X
         get_open_orders         X
         get_executions          X
         get_positions           X
-        cancel_order
+        cancel_order            X
         amend_order
     Market:
         get_tickers             X

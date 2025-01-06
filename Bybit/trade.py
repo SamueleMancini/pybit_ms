@@ -638,25 +638,80 @@ class Trade_client:
             query=kwargs,
             auth=True,
         )
+    
 
-    def cancel_order(self, **kwargs):
-        """Unified account covers: Spot / Linear contract / Options
-        Normal account covers: USDT perpetual / Inverse perpetual / Inverse futures
-
-        Required args:
-            category (string): Product type Unified account: spot, linear, optionNormal account: linear, inverse. Please note that category is not involved with business logic
-            symbol (string): Symbol name
-            orderId (string): Order ID. Either orderId or orderLinkId is required
-            orderLinkId (string): User customised order ID. Either orderId or orderLinkId is required
-
-        https://bybit-exchange.github.io/docs/v5/order/cancel-order
+    def cancel_order(
+        self,
+        category: str,
+        symbol: str,
+        order_id: str = None,
+        order_link_id: str = None,
+        raw: bool = False,
+        **kwargs
+    ) -> str:
         """
-        return self._http_manager._submit_request(
+        Cancel an active (or conditional) order on Bybit.
+
+        This method supports:
+            - Unified accounts (spot, linear, option)
+            - Normal accounts (linear, inverse)
+        
+        Either `order_id` or `order_link_id` must be provided.
+
+        Args:
+            category (str): Product type (e.g., "spot", "linear", "inverse", "option").
+                - Unified account: "spot", "linear", "option"
+                - Normal account: "linear", "inverse"
+            symbol (str): Symbol name (e.g., "BTCUSDT").
+            order_id (str, optional): Bybit system-generated order ID. 
+                Provide if you don't have `order_link_id`. Defaults to None.
+            order_link_id (str, optional): User-defined order ID. 
+                Provide if you don't have `order_id`. Defaults to None.
+            raw (bool, optional): If True, returns the raw response (dict). Defaults to False.
+            **kwargs: Additional parameters recognized by Bybit's API.
+
+        Returns:
+            str | dict:
+                - If `raw=True`, returns the entire Bybit response (dict).
+                - Otherwise, returns a string that includes either
+                  "orderLinkId: <...>    CANCELLED" or 
+                  "orderId: <...>    CANCELLED", depending on which
+                  identifier was used.
+
+        Raises:
+            InvalidRequestError: If neither `order_id` nor `order_link_id` is provided.
+
+        Note:
+            For more details, see:
+            https://bybit-exchange.github.io/docs/v5/order/cancel-order
+        """
+
+        # Build the request parameters
+        kwargs["category"] = category
+        kwargs["symbol"] = symbol
+        kwargs["orderId"] = order_id
+        kwargs["orderLinkId"] = order_link_id
+
+        response = self._http_manager._submit_request(
             method="POST",
             path=f"{self.endpoint}{Trade.CANCEL_ORDER}",
             query=kwargs,
             auth=True,
         )
+
+        # If raw response is requested, return the full dictionary
+        if raw:
+            return response
+
+        # If an order_link_id was provided, return a "CANCELLED" message with it
+        if order_link_id is not None:
+            cancelled_link_id = response.get("result", {}).get("orderLinkId", [])
+            return f"orderLinkId: {cancelled_link_id}    CANCELLED"
+
+        # Otherwise, return a "CANCELLED" message with the system-generated order ID
+        cancelled_order_id = response.get("result", {}).get("orderId", [])
+        return f"orderId: {cancelled_order_id}    CANCELLED"
+
     
     def get_open_orders(
             self,
@@ -898,25 +953,70 @@ class Trade_client:
             display_html(html, raw=True)
             return None
 
-
-    def cancel_all_orders(self, **kwargs):
-        """Cancel all open orders
-
-        Required args:
-            category (string): Product type
-                Unified account: spot, linear, option
-                Normal account: linear, inverse.
-
-                Please note that category is not involved with business logic. If cancel all by baseCoin, it will cancel all linear & inverse orders
-
-        https://bybit-exchange.github.io/docs/v5/order/cancel-all
+    def cancel_all_orders(
+        self,
+        category: str,
+        symbol: str = None,
+        base_coin: str = None,
+        settle_coin: str = None,
+        raw: bool = False,
+        **kwargs
+    ) -> list | dict:
         """
-        return self._http_manager._submit_request(
+        Cancel all open orders for a specified category and symbol on Bybit.
+
+        This method supports:
+            - Unified accounts: spot, linear, option
+            - Normal accounts: linear, inverse
+
+        Notes:
+            - If cancelling all by `base_coin`/`settle_coin`, it will cancel all linear and inverse orders.
+            - The `symbol` parameter is typically required unless you are cancelling by `base_coin`/`settle_coin`.
+            - If `raw=True`, the raw JSON response is returned directly.
+
+        Args:
+            category (str): Product type ("spot", "linear", "inverse", "option").
+                Note that category does not affect business logic directly, 
+                but is required by the Bybit API.
+            symbol (str): Symbol name, e.g. "BTCUSDT".
+            base_coin (str, optional): Base coin (e.g. "BTC" for linear or inverse).
+            settle_coin (str, optional): Settlement coin (e.g. "USDT" for linear).
+            raw (bool, optional): If True, returns the raw response (dict).
+                Otherwise, returns a list of order IDs that were cancelled.
+                Defaults to False.
+            **kwargs: Additional parameters recognized by Bybit's API.
+
+        Returns:
+            list | dict:
+                - If `raw=True`, returns a dictionary containing the full Bybit response.
+                - Otherwise, returns a list of string order IDs that were cancelled.
+
+        Notes:
+            https://bybit-exchange.github.io/docs/v5/order/cancel-all
+        """
+
+        # Prepare query parameters
+        kwargs["category"] = category
+        kwargs["symbol"] = symbol
+        kwargs["baseCoin"] = base_coin
+        kwargs["settleCoin"] = settle_coin
+
+        # Submit the cancellation request
+        response = self._http_manager._submit_request(
             method="POST",
             path=f"{self.endpoint}{Trade.CANCEL_ALL_ORDERS}",
             query=kwargs,
             auth=True,
         )
+
+        # If raw output is requested, return the entire response
+        if raw:
+            return response
+        
+        # Otherwise, parse the cancelled orders list
+        cancelled_list = response.get("result", {}).get("list", [])
+        return [item.get('orderId') for item in cancelled_list]
+
     
     def get_order_history(self, max_pages=None, **kwargs):
         """
