@@ -1,10 +1,10 @@
 trade:
     PLACE_ORDER                                             X
-    AMEND_ORDER
+    AMEND_ORDER                                             X
     CANCEL_ORDER                                            X
     GET_OPEN_ORDERS                                         X
     CANCEL_ALL_ORDERS                                       X
-    GET_ORDER_HISTORY
+    GET_ORDER_HISTORY                                       X
     BATCH_PLACE_ORDER
     BATCH_AMEND_ORDER
     BATCH_CANCEL_ORDER
@@ -69,9 +69,9 @@ account:
 
 market:
     GET_SERVER_TIME
-    GET_KLINE
-    GET_MARK_PRICE_KLINE
-    GET_INDEX_PRICE_KLINE
+    GET_KLINE                                               X
+    GET_MARK_PRICE_KLINE                                    X
+    GET_INDEX_PRICE_KLINE                                   X
     GET_PREMIUM_INDEX_PRICE_KLINE
     GET_INSTRUMENTS_INFO
     GET_ORDERBOOK

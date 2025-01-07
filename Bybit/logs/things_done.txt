@@ -10,7 +10,8 @@ Samu:
         get_executions          X
         get_positions           X
         cancel_order            X
-        amend_order
+        amend_order             X
+        get_order_history       X
     Market:
         get_tickers             X
     Account:

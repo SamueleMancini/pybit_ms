@@ -35,6 +35,7 @@ class Trade_client:
         self._http_manager = http_manager
         self.endpoint = http_manager.endpoint
 
+
     def place_order(
         self,
         category: str,
@@ -194,7 +195,8 @@ class Trade_client:
         # Otherwise, return system-generated order ID
         order_id = response.get('result', {}).get('orderId', [])
         return f"orderId: {order_id}"
-    
+
+
     def place_spot_order(
         self,
         symbol: str,
@@ -622,22 +624,103 @@ class Trade_client:
         return f"orderId: {response.get('result', {}).get('orderId', [])}"
     
 
-    def amend_order(self, **kwargs):
-        """Unified account covers: Linear contract / Options
-        Normal account covers: USDT perpetual / Inverse perpetual / Inverse futures
-
-        Required args:
-            category (string): Product type Unified account: spot, linear, optionNormal account: linear, inverse. Please note that category is not involved with business logic
-            symbol (string): Symbol name
-
-        https://bybit-exchange.github.io/docs/v5/order/amend-order
+    def amend_order(
+        self,
+        category: str,
+        symbol: str,
+        qty: str = None,
+        price: str = None,
+        trigger_price: str = None,
+        trigger_by: str = None,
+        order_link_id: str = None,
+        order_id: str = None,
+        take_profit: str = None,
+        stop_loss: str = None,
+        tp_trigger_by: str = None,
+        sl_trigger_by: str = None,
+        tp_limit_price: str = None,
+        sl_limit_price: str = None,
+        tpsl_mode: str = None,
+        raw: bool = False,
+        **kwargs
+    ) -> str | dict:
         """
-        return self._http_manager._submit_request(
+        Amend or modify an existing active or conditional order on Bybit.
+
+        This endpoint supports:
+          - Unified accounts: spot, linear, option
+          - Normal accounts: linear, inverse
+
+        Either `order_id` or `order_link_id` must be provided to identify the order.
+
+        Args:
+            category (str): Product type, such as "spot", "linear", "inverse", or "option".
+            symbol (str): Symbol name, e.g., "BTCUSDT".
+            qty (str, optional): New quantity to update (in string format for Bybit).
+            price (str, optional): New price if adjusting a limit order. Defaults to None.
+            trigger_price (str, optional): New trigger price if this is a conditional order. Defaults to None.
+            trigger_by (str, optional): Mechanism for triggering (e.g., "LastPrice", "MarkPrice"). Defaults to None.
+            order_link_id (str, optional): User-defined ID if the order was placed via a custom ID. Defaults to None.
+            order_id (str, optional): Bybit system-generated order ID to amend. Defaults to None.
+            take_profit (str, optional): Updated take profit price. Defaults to None.
+            stop_loss (str, optional): Updated stop loss price. Defaults to None.
+            tp_trigger_by (str, optional): Trigger mechanism for take profit. Defaults to None.
+            sl_trigger_by (str, optional): Trigger mechanism for stop loss. Defaults to None.
+            tp_limit_price (str, optional): Limit price for TP if `tp_order_type="Limit"`. Defaults to None.
+            sl_limit_price (str, optional): Limit price for SL if `sl_order_type="Limit"`. Defaults to None.
+            tpsl_mode (str, optional): "Full" or "Partial" to describe position-close mode. Defaults to None.
+            raw (bool, optional): If True, returns the raw API response (dict). Defaults to False.
+            **kwargs: Additional parameters recognized by Bybit's API.
+
+        Returns:
+            str | dict:
+                - If `raw=True`, returns the raw API response (dict).
+                - Otherwise, returns a string:
+                  - "orderLinkId: <...>" if `order_link_id` was used,
+                  - "orderId: <...>" otherwise.
+
+        Note:
+            - For more details, see:
+              https://bybit-exchange.github.io/docs/v5/order/amend-order
+        """
+
+        # Build the request parameters
+        kwargs["category"] = category
+        kwargs["symbol"] = symbol
+        kwargs["qty"] = qty
+        kwargs["price"] = price
+        kwargs["triggerPrice"] = trigger_price
+        kwargs["triggerBy"] = trigger_by
+        kwargs["orderLinkId"] = order_link_id
+        kwargs["orderId"] = order_id
+        kwargs["takeProfit"] = take_profit
+        kwargs["stopLoss"] = stop_loss
+        kwargs["tpTriggerBy"] = tp_trigger_by
+        kwargs["slTriggerBy"] = sl_trigger_by
+        kwargs["tpLimitPrice"] = tp_limit_price
+        kwargs["slLimitPrice"] = sl_limit_price
+        kwargs["tpslMode"] = tpsl_mode
+
+        # Send the request
+        response = self._http_manager._submit_request(
             method="POST",
             path=f"{self.endpoint}{Trade.AMEND_ORDER}",
             query=kwargs,
             auth=True,
         )
+
+        # Return raw response if requested
+        if raw:
+            return response
+
+        # If order_link_id was provided, return that
+        if order_link_id is not None:
+            updated_link_id = response.get('result', {}).get('orderLinkId', [])
+            return f"orderLinkId: {updated_link_id}"
+
+        # Otherwise, return the system-generated order ID
+        updated_order_id = response.get('result', {}).get('orderId', [])
+        return f"orderId: {updated_order_id}"
     
 
     def cancel_order(
@@ -726,232 +809,233 @@ class Trade_client:
             return_list=False,
             **kwargs
         ):
+        """
+        Query unfilled or partially filled orders in real-time.
+        To query older order records, please use the order history interface.
+
+        Args:
+            category (str): 
+                - Unified account: "spot", "linear", "option"
+                - Normal account: "linear", "inverse"
+            symbol (str, optional): Only required if category != 'spot'. 
+                Depending on your usage, you could also provide `settle_coin` or `base_coin` instead.
+            settle_coin (str, optional): Settlement coin (e.g., "USDT").
+            base_coin (str, optional): Base coin (e.g., "BTC").
+            order_id (str, optional): Specific order ID to query.
+            order_link_id (str, optional): Client-generated order ID.
+            max_pages (int, optional): If set, fetch multiple pages up to this limit.
+            raw (bool, optional): If True, returns the raw Bybit API response. Defaults to False.
+            return_list (bool, optional): If True, returns a list of orders instead 
+                of displaying them as a styled DataFrame. Defaults to False.
+            **kwargs: Additional query parameters (e.g., "limit", etc.).
+
+        Returns:
+            dict: The raw API response if `raw` is True and `max_pages` is None.
+            list: If `raw` is True and `max_pages` is set, returns paginated raw data.
+            dict: An empty dict if there are no orders (and `raw` is False).
+            list: If `return_list` is True, returns the processed open orders as a list of dicts.
+            None: If neither `raw` nor `return_list` is True, displays a styled DataFrame in a Jupyter environment.
+        
+        Note:
+            https://bybit-exchange.github.io/docs/v5/order/open-order
+        """
+
+        def is_not_zero(value):
+            """Check if a value is numeric and not zero."""
+            try:
+                num = float(value)
+                return num != 0
+            except ValueError:
+                return False
+
+        def format_with_spaces(value):
             """
-            Query unfilled or partially filled orders in real-time.
-            To query older order records, please use the order history interface.
-
-            Args:
-                category (str): 
-                    - Unified account: "spot", "linear", "option"
-                    - Normal account: "linear", "inverse"
-                symbol (str, optional): Only required if category != 'spot'. 
-                    Depending on your usage, you could also provide `settle_coin` or `base_coin` instead.
-                settle_coin (str, optional): Settlement coin (e.g., "USDT").
-                base_coin (str, optional): Base coin (e.g., "BTC").
-                order_id (str, optional): Specific order ID to query.
-                order_link_id (str, optional): Client-generated order ID.
-                max_pages (int, optional): If set, fetch multiple pages up to this limit.
-                raw (bool, optional): If True, returns the raw Bybit API response. Defaults to False.
-                return_list (bool, optional): If True, returns a list of orders instead 
-                    of displaying them as a styled DataFrame. Defaults to False.
-                **kwargs: Additional query parameters (e.g., "limit", etc.).
-
-            Returns:
-                dict: The raw API response if `raw` is True and `max_pages` is None.
-                list: If `raw` is True and `max_pages` is set, returns paginated raw data.
-                dict: An empty dict if there are no orders (and `raw` is False).
-                list: If `return_list` is True, returns the processed open orders as a list of dicts.
-                None: If neither `raw` nor `return_list` is True, displays a styled DataFrame in a Jupyter environment.
-            
-            Note:
-                https://bybit-exchange.github.io/docs/v5/order/open-order
+            Format numeric values to have commas replaced by spaces, 
+            e.g., 1,234.56 -> 1 234.56. Only applies if `value` is numeric.
             """
+            try:
+                num = float(value)
+                # If the number is an integer, reduce it to int for display (e.g., 100.0 -> 100).
+                if num.is_integer():
+                    num = int(num)
 
-            def is_not_zero(value):
-                """Check if a value is numeric and not zero."""
-                try:
-                    num = float(value)
-                    return num != 0
-                except ValueError:
-                    return False
+                # If number is large, insert thousands separators (replacing commas with spaces).
+                if num > 99999:
+                    formatted = f"{num:,}".replace(",", " ")
+                else:
+                    formatted = str(num)
+            except ValueError:
+                formatted = value
+            return formatted
 
-            def format_with_spaces(value):
-                """
-                Format numeric values to have commas replaced by spaces, 
-                e.g., 1,234.56 -> 1 234.56. Only applies if `value` is numeric.
-                """
-                try:
-                    num = float(value)
-                    # If the number is an integer, reduce it to int for display (e.g., 100.0 -> 100).
-                    if num.is_integer():
-                        num = int(num)
-
-                    # If number is large, insert thousands separators (replacing commas with spaces).
-                    if num > 99999:
-                        formatted = f"{num:,}".replace(",", " ")
+        def format_dashboard(df, red='Ask', green='Bid', lime='Value'):
+            """
+            Apply custom styling to a pandas DataFrame for display in a Jupyter environment.
+            """
+            def style_specific_cell(row):
+                styles = []
+                for col_name in row.keys():
+                    if green in col_name:
+                        styles.append(
+                            'background-color: lightgreen; color: black; font-weight: bold;'
+                        )
+                    elif red in col_name:
+                        styles.append(
+                            'background-color: salmon; color: black; font-weight: bold;'
+                        )
+                    elif lime in col_name:
+                        styles.append('background-color: black; color: lime')
                     else:
-                        formatted = str(num)
-                except ValueError:
-                    formatted = value
-                return formatted
+                        styles.append('background-color: black')
+                return styles
 
-            def format_dashboard(df, red='Ask', green='Bid', lime='Value'):
-                """
-                Apply custom styling to a pandas DataFrame for display in a Jupyter environment.
-                """
-                def style_specific_cell(row):
-                    styles = []
-                    for col_name in row.keys():
-                        if green in col_name:
-                            styles.append(
-                                'background-color: lightgreen; color: black; font-weight: bold;'
-                            )
-                        elif red in col_name:
-                            styles.append(
-                                'background-color: salmon; color: black; font-weight: bold;'
-                            )
-                        elif lime in col_name:
-                            styles.append('background-color: black; color: lime')
-                        else:
-                            styles.append('background-color: black')
-                    return styles
+            styled = df.style.apply(style_specific_cell, axis=1)
+            # Right-align columns
+            styled = styled.set_properties(**{'text-align': 'right'})
+            # Add a border and control table sizing
+            styled = styled.set_table_attributes(
+                'style="font-size: 12px; border: 2px solid black;"'
+            )
 
-                styled = df.style.apply(style_specific_cell, axis=1)
-                # Right-align columns
-                styled = styled.set_properties(**{'text-align': 'right'})
-                # Add a border and control table sizing
-                styled = styled.set_table_attributes(
-                    'style="font-size: 12px; border: 2px solid black;"'
-                )
+            styled = styled.format(format_with_spaces)
 
-                styled = styled.format(format_with_spaces)
+            header_styles = [
+                {
+                    'selector': 'caption',
+                    'props': [
+                        ('color', 'white'),
+                        ('font-size', '16px'),
+                        ('font-weight', 'bold'),
+                        ('text-align', 'center'),
+                        ('caption-side', 'top')
+                    ]
+                }
+            ]
+            styled = styled.set_table_styles(header_styles)
 
-                header_styles = [
-                    {
-                        'selector': 'caption',
-                        'props': [
-                            ('color', 'white'),
-                            ('font-size', '16px'),
-                            ('font-weight', 'bold'),
-                            ('text-align', 'center'),
-                            ('caption-side', 'top')
-                        ]
-                    }
-                ]
-                styled = styled.set_table_styles(header_styles)
+            return styled
 
-                return styled
+        # Build the request parameters
+        path = f"{self.endpoint}{Trade.GET_OPEN_ORDERS}"
+        kwargs["category"] = category
+        kwargs["symbol"] = symbol
+        kwargs["settleCoin"] = settle_coin
+        kwargs["baseCoin"] = base_coin
+        kwargs["orderId"] = order_id
+        kwargs["orderLinkId"] = order_link_id
 
-            # Build the request parameters
-            path = f"{self.endpoint}{Trade.GET_OPEN_ORDERS}"
-            kwargs["category"] = category
-            kwargs["symbol"] = symbol
-            kwargs["settleCoin"] = settle_coin
-            kwargs["baseCoin"] = base_coin
-            kwargs["orderId"] = order_id
-            kwargs["orderLinkId"] = order_link_id
+        # If max_pages is set, use the paginated endpoint
+        if max_pages:
+            data_list = self._http_manager._submit_paginated_request(
+                method="GET",
+                path=path,
+                query=kwargs,
+                auth=True,
+                max_pages=max_pages,
+            )
+        else:
+            # Otherwise, make a single request
+            response = self._http_manager._submit_request(
+                method="GET",
+                path=path,
+                query=kwargs,
+                auth=True,
+            )
+            # If raw is requested, return the entire response
+            if raw:
+                return response
 
-            # If max_pages is set, use the paginated endpoint
-            if max_pages:
-                data_list = self._http_manager._submit_paginated_request(
-                    method="GET",
-                    path=path,
-                    query=kwargs,
-                    auth=True,
-                    max_pages=max_pages,
+            data_list = response.get('result', {}).get('list', [])
+            if not data_list:
+                # If the list is empty, return an empty dictionary
+                return {}
+
+        # If raw was requested (and we had multiple pages), return the raw data_list
+        if raw:
+            return data_list
+
+        # Filter and transform each order in data_list
+        keys_to_keep = [
+            'symbol', 'orderType', 'side', 'price', 'qty', 'leavesQty', 'isLeverage',
+            'timeInForce', 'takeProfit', 'stopLoss', 'triggerPrice', 'tpLimitPrice',
+            'slLimitPrice', 'orderStatus', 'triggerDirection', 'triggerBy',
+            'orderLinkId', 'orderId', 'createdTime'
+        ]
+
+        for idx, item in enumerate(data_list):
+            filtered = {k: item[k] for k in keys_to_keep if k in item}
+
+            # Convert timestamp to human-readable
+            if 'createdTime' in filtered:
+                try:
+                    filtered['createdTime'] = pd.to_datetime(
+                        int(filtered['createdTime']), unit='ms'
+                    ).strftime('%Y-%m-%d %H:%M:%S')
+                except (ValueError, TypeError):
+                    filtered['createdTime'] = '-'
+
+            # Take-profit logic
+            if is_not_zero(filtered['takeProfit']) or is_not_zero(filtered['tpLimitPrice']):
+                filtered['takeProfit'] = (
+                    f"{'limit' if is_not_zero(filtered['tpLimitPrice']) else 'market'}:\n \
+                    {format_with_spaces(filtered['takeProfit']) if is_not_zero(filtered['takeProfit']) \
+                    else format_with_spaces(filtered['tpLimitPrice'])}"
                 )
             else:
-                # Otherwise, make a single request
-                response = self._http_manager._submit_request(
-                    method="GET",
-                    path=path,
-                    query=kwargs,
-                    auth=True,
+                filtered['takeProfit'] = '-'
+            
+            filtered.pop('tpLimitPrice', None)
+
+            # Stop-loss logic
+            if is_not_zero(filtered['stopLoss']) or is_not_zero(filtered['slLimitPrice']):
+                filtered['stopLoss'] = (
+                    f"{'limit' if is_not_zero(filtered['slLimitPrice']) else 'market'}:\n \
+                    {format_with_spaces(filtered['stopLoss']) if is_not_zero(filtered['stopLoss']) \
+                    else format_with_spaces(filtered['slLimitPrice'])}"
                 )
-                # If raw is requested, return the entire response
-                if raw:
-                    return response
+            else:
+                filtered['stopLoss'] = '-'
+            
+            filtered.pop('slLimitPrice', None)
 
-                data_list = response.get('result', {}).get('list', [])
-                if not data_list:
-                    # If the list is empty, return an empty dictionary
-                    return {}
+            # Trigger price logic
+            if is_not_zero(filtered['triggerPrice']):
+                filtered['triggerPrice'] = (
+                    f"{'\u2191' if filtered['triggerDirection'] == '1' else '\u2193'} \
+                    {filtered['orderStatus']} ({filtered['triggerBy']}):\n \
+                    {format_with_spaces(filtered['triggerPrice'])}"
+                )
+            else:
+                filtered['triggerPrice'] = '-'
+            
+            filtered.pop('triggerDirection', None)
+            filtered.pop('orderStatus', None)
+            filtered.pop('triggerBy', None)
 
-            # If raw was requested (and we had multiple pages), return the raw data_list
-            if raw:
-                return data_list
+            filtered['orderLinkId'] = f"link:\n{filtered['orderLinkId']}"
+            filtered['orderId'] = f"id:\n{filtered['orderId']}"
 
-            # Filter and transform each order in data_list
-            keys_to_keep = [
-                'symbol', 'orderType', 'side', 'price', 'qty', 'leavesQty', 'isLeverage',
-                'timeInForce', 'takeProfit', 'stopLoss', 'triggerPrice', 'tpLimitPrice',
-                'slLimitPrice', 'orderStatus', 'triggerDirection', 'triggerBy',
-                'orderLinkId', 'orderId', 'createdTime'
-            ]
+            # If not spot, remove isLeverage
+            if category != "spot":
+                filtered.pop('isLeverage', None)
 
-            for idx, item in enumerate(data_list):
-                filtered = {k: item[k] for k in keys_to_keep if k in item}
+            data_list[idx] = filtered
 
-                # Convert timestamp to human-readable
-                if 'createdTime' in filtered:
-                    try:
-                        filtered['createdTime'] = pd.to_datetime(
-                            int(filtered['createdTime']), unit='ms'
-                        ).strftime('%Y-%m-%d %H:%M:%S')
-                    except (ValueError, TypeError):
-                        filtered['createdTime'] = '-'
+        # If returning a simple list is requested, return it
+        if return_list:
+            return data_list
 
-                # Take-profit logic
-                if is_not_zero(filtered['takeProfit']) or is_not_zero(filtered['tpLimitPrice']):
-                    filtered['takeProfit'] = (
-                        f"{'limit' if is_not_zero(filtered['tpLimitPrice']) else 'market'}:\n \
-                        {format_with_spaces(filtered['takeProfit']) if is_not_zero(filtered['takeProfit']) \
-                        else format_with_spaces(filtered['tpLimitPrice'])}"
-                    )
-                else:
-                    filtered['takeProfit'] = '-'
-                
-                filtered.pop('tpLimitPrice', None)
+        # Otherwise, build a DataFrame
+        df = pd.DataFrame(data_list)
+        # Rename 'leavesQty' to 'unfilledQty'
+        if 'leavesQty' in df.columns:
+            df.rename(columns={'leavesQty': 'unfilledQty'}, inplace=True)
 
-                # Stop-loss logic
-                if is_not_zero(filtered['stopLoss']) or is_not_zero(filtered['slLimitPrice']):
-                    filtered['stopLoss'] = (
-                        f"{'limit' if is_not_zero(filtered['slLimitPrice']) else 'market'}:\n \
-                        {format_with_spaces(filtered['stopLoss']) if is_not_zero(filtered['stopLoss']) \
-                        else format_with_spaces(filtered['slLimitPrice'])}"
-                    )
-                else:
-                    filtered['stopLoss'] = '-'
-                
-                filtered.pop('slLimitPrice', None)
+        styled_df = format_dashboard(df).set_caption("Open Orders")
+        html = styled_df._repr_html_()
+        display_html(html, raw=True)
+        return None
 
-                # Trigger price logic
-                if is_not_zero(filtered['triggerPrice']):
-                    filtered['triggerPrice'] = (
-                        f"{'\u2191' if filtered['triggerDirection'] == '1' else '\u2193'} \
-                        {filtered['orderStatus']} ({filtered['triggerBy']}):\n \
-                        {format_with_spaces(filtered['triggerPrice'])}"
-                    )
-                else:
-                    filtered['triggerPrice'] = '-'
-                
-                filtered.pop('triggerDirection', None)
-                filtered.pop('orderStatus', None)
-                filtered.pop('triggerBy', None)
-
-                filtered['orderLinkId'] = f"link:\n{filtered['orderLinkId']}"
-                filtered['orderId'] = f"id:\n{filtered['orderId']}"
-
-                # If not spot, remove isLeverage
-                if category != "spot":
-                    filtered.pop('isLeverage', None)
-
-                data_list[idx] = filtered
-
-            # If returning a simple list is requested, return it
-            if return_list:
-                return data_list
-
-            # Otherwise, build a DataFrame
-            df = pd.DataFrame(data_list)
-            # Rename 'leavesQty' to 'unfilledQty'
-            if 'leavesQty' in df.columns:
-                df.rename(columns={'leavesQty': 'unfilledQty'}, inplace=True)
-
-            styled_df = format_dashboard(df).set_caption("Open Orders")
-            html = styled_df._repr_html_()
-            display_html(html, raw=True)
-            return None
 
     def cancel_all_orders(
         self,
@@ -1017,30 +1101,160 @@ class Trade_client:
         cancelled_list = response.get("result", {}).get("list", [])
         return [item.get('orderId') for item in cancelled_list]
 
-    
-    def get_order_history(self, max_pages=None, **kwargs):
+
+    def get_order_history(
+        self,
+        category: str,
+        symbol: str = None,
+        settle_coin: str = None,
+        base_coin: str = None,
+        order_id: str = None,
+        order_link_id: str = None,
+        order_status: str = None,
+        start_time: str = None,
+        end_time: str = None,
+        max_pages: int = None,
+        raw: bool = False,
+        return_list: bool = False,
+        **kwargs
+    ) -> dict | list | None:
         """
-        Query order history. As order creation/cancellation is asynchronous, the data returned from this endpoint may delay.
-        If you want to get real-time order information, you could query this endpoint or rely on the websocket stream (recommended).
+        Query your order history from Bybit.
 
-        Required args:
-            category (string): Product type
-                - Unified account: "spot", "linear", "option"
-                - Normal account: "linear", "inverse"
-            (Please note that category is not involved with business logic.)
+        This method can retrieve historical order data for a given product category
+        (e.g. "spot", "linear", "inverse", "option"). As order creation/cancellation is
+        asynchronous, there might be a slight delay in the data returned from this endpoint.
 
-        https://bybit-exchange.github.io/docs/v5/order/order-list
+        Args:
+            category (str):
+                - For Unified accounts: "spot", "linear", "option"
+                - For Normal accounts: "linear", "inverse"
+            symbol (str, optional): Symbol name (e.g., "BTCUSDT"). Defaults to None.
+            settle_coin (str, optional): Settlement coin (e.g., "USDT"). Defaults to None.
+            base_coin (str, optional): Base coin (e.g., "BTC"). Defaults to None.
+            order_id (str, optional): Specific order ID to filter results. Defaults to None.
+            order_link_id (str, optional): Custom client-defined order ID to filter. Defaults to None.
+            order_status (str, optional): Filter results by order status (e.g., "Filled", "Cancelled"). Defaults to None.
+            start_time (str, optional): Date (%Y-%m-%d %H:%M:%S). Will be converted internally to ms.
+                Defaults to None.
+            end_time (str, optional): Date (%Y-%m-%d %H:%M:%S). . Will be converted internally to ms.
+                Defaults to None.
+            max_pages (int, optional): If set, fetch multiple pages up to this limit. Defaults to None.
+            raw (bool, optional): 
+                - If True and `max_pages` is None, returns the raw dict response.
+                - If True and `max_pages` is set, returns a combined list of raw data from multiple pages.
+                Defaults to False.
+            return_list (bool, optional):
+                - If True (and data is not raw), returns a list of processed records.
+                - Otherwise, displays a styled HTML DataFrame and returns None.
+                Defaults to False.
+            **kwargs: Additional query parameters (e.g., `limit`, etc.) recognized by Bybit.
 
-        :param max_pages: (int) If set, fetch multiple pages up to this limit.
-        :param kwargs: Additional query parameters (e.g., symbol, limit, startTime, endTime, etc.).
-        :return:
-            - A single Bybit response dict if max_pages is None.
-            - A combined list of order history items if max_pages is set.
+        Returns:
+            dict | list | None:
+                - If `max_pages` is None and `raw=True`, returns a raw dict response from Bybit.
+                - If `max_pages` is set and `raw=True`, returns a combined list of raw records.
+                - If neither `raw` nor `max_pages` are set, but data is present:
+                  displays a styled HTML DataFrame of the order history and returns None.
+                - If `return_list` is True, returns a list of processed dictionary records.
+                - Returns an empty dict if there is no data and `raw=False`.
+
+        Notes:
+            https://bybit-exchange.github.io/docs/v5/order/order-list
         """
+
+        def is_not_zero(value):
+            """Check if a value is numeric and not zero."""
+            try:
+                num = float(value)
+                return num != 0
+            except ValueError:
+                return False
+
+        def format_with_spaces(value):
+            """
+            Format numeric values to replace commas with spaces, e.g., 1,234.56 -> 1 234.56.
+            Only applies if `value` is numeric.
+            """
+            try:
+                num = float(value)
+                # If the number is an integer, display as integer (e.g., 100.0 -> 100)
+                if num.is_integer():
+                    num = int(num)
+                # Insert thousands separators (spaces) for large numbers
+                if num > 99999:
+                    formatted = f"{num:,}".replace(",", " ")
+                else:
+                    formatted = str(num)
+            except ValueError:
+                formatted = value
+            return formatted
+
+        def format_dashboard(df, red='Ask', green='Bid', lime='Value'):
+            """
+            Apply custom styling to a pandas DataFrame for display in a Jupyter environment.
+            """
+            def style_specific_cell(row):
+                styles = []
+                for col_name in row.keys():
+                    if green in col_name:
+                        styles.append('background-color: lightgreen; color: black; font-weight: bold;')
+                    elif red in col_name:
+                        styles.append('background-color: salmon; color: black; font-weight: bold;')
+                    elif lime in col_name:
+                        styles.append('background-color: black; color: lime')
+                    else:
+                        styles.append('background-color: black')
+                return styles
+
+            styled = df.style.apply(style_specific_cell, axis=1)
+            # Right-align columns
+            styled = styled.set_properties(**{'text-align': 'right'})
+            # Add a border and adjust table style
+            styled = styled.set_table_attributes('style="font-size: 12px; border: 2px solid black;"')
+            # Numeric formatting
+            styled = styled.format(format_with_spaces)
+
+            # Header styles
+            header_styles = [
+                {
+                    'selector': 'caption',
+                    'props': [
+                        ('color', 'white'),
+                        ('font-size', '16px'),
+                        ('font-weight', 'bold'),
+                        ('text-align', 'center'),
+                        ('caption-side', 'top')
+                    ]
+                }
+            ]
+            styled = styled.set_table_styles(header_styles)
+            return styled
+
+        # Convert start_time / end_time if provided
+        if start_time is not None:
+            start_timestamp = pd.to_datetime(start_time)
+            start_time = int(start_timestamp.timestamp() * 1000)
+
+        if end_time is not None:
+            end_timestamp = pd.to_datetime(end_time)
+            end_time = int(end_timestamp.timestamp() * 1000)
+
+        # Build request parameters
         path = f"{self.endpoint}{Trade.GET_ORDER_HISTORY}"
+        kwargs["category"] = category
+        kwargs["symbol"] = symbol
+        kwargs["settleCoin"] = settle_coin
+        kwargs["baseCoin"] = base_coin
+        kwargs["orderId"] = order_id
+        kwargs["orderLinkId"] = order_link_id
+        kwargs["orderStatus"] = order_status
+        kwargs["startTime"] = start_time
+        kwargs["endTime"] = end_time
 
-        if max_pages:
-            return self._http_manager._submit_paginated_request(
+        # If max_pages is set, use the paginated endpoint
+        if max_pages is not None:
+            data_list = self._http_manager._submit_paginated_request(
                 method="GET",
                 path=path,
                 query=kwargs,
@@ -1048,12 +1262,141 @@ class Trade_client:
                 max_pages=max_pages,
             )
         else:
-            return self._http_manager._submit_request(
+            # Otherwise, make a single request
+            response = self._http_manager._submit_request(
                 method="GET",
                 path=path,
                 query=kwargs,
                 auth=True,
             )
+
+            # Return raw if needed
+            if raw:
+                return response
+
+            data_list = response.get('result', {}).get('list', [])
+            if not data_list:
+                # Return empty dict if no data
+                return {}
+
+        # If raw is requested (and multiple pages potentially fetched), return the raw data_list
+        if raw:
+            return data_list
+
+        # Filter and transform each item in data_list
+        keys_to_keep = [
+            'symbol', 'orderType', 'timeInForce', 'orderStatus', 'side', 'isLeverage',
+            'price', 'avgPrice', 'qty', 'cumExecQty', 'leavesQty', 'cumExecFee',
+            'takeProfit', 'stopLoss', 'tpLimitPrice', 'slLimitPrice',
+            'triggerPrice', 'triggerBy', 'triggerDirection',
+            'orderLinkId', 'orderId', 'createdTime'
+        ]
+
+        for idx, item in enumerate(data_list):
+            filtered = {k: item[k] for k in keys_to_keep if k in item}
+
+            # Convert createdTime to readable format
+            if 'createdTime' in filtered:
+                try:
+                    filtered['createdTime'] = pd.to_datetime(
+                        int(filtered['createdTime']), unit='ms'
+                    ).strftime('%Y-%m-%d %H:%M:%S')
+                except (ValueError, TypeError):
+                    filtered['createdTime'] = '-'
+
+            # Combine orderStatus, orderType, timeInForce into a single field
+            if (
+                'orderStatus' in filtered and
+                'orderType' in filtered and
+                'timeInForce' in filtered
+            ):
+                filtered['orderType'] = f"{filtered['orderStatus']} ({filtered['orderType']}, {filtered['timeInForce']})"
+            filtered.pop('timeInForce', None)
+
+            # Replace numeric zeros with '-'
+            if not is_not_zero(filtered.get('price', 0)):
+                filtered['price'] = '-'
+            if not is_not_zero(filtered.get('isLeverage', 0)):
+                filtered['isLeverage'] = '-'
+            if not is_not_zero(filtered.get('cumExecQty', 0)):
+                filtered['cumExecQty'] = '-'
+            if not is_not_zero(filtered.get('avgPrice', 0)):
+                filtered['avgPrice'] = '-'
+            if not is_not_zero(filtered.get('cumExecFee', 0)):
+                filtered['cumExecFee'] = '-'
+            if not is_not_zero(filtered.get('leavesQty', 0)):
+                filtered['leavesQty'] = '-'
+
+            # Take-profit logic
+            tp_price = filtered.get('takeProfit', 0)
+            tp_limit = filtered.get('tpLimitPrice', 0)
+            if is_not_zero(tp_price) or is_not_zero(tp_limit):
+                filtered['takeProfit'] = (
+                    f"{'limit' if is_not_zero(tp_limit) else 'market'}:\n \
+                    {format_with_spaces(tp_price) if is_not_zero(tp_price) else format_with_spaces(tp_limit)}"
+                )
+            else:
+                filtered['takeProfit'] = '-'
+            filtered.pop('tpLimitPrice', None)
+
+            # Stop-loss logic
+            sl_price = filtered.get('stopLoss', 0)
+            sl_limit = filtered.get('slLimitPrice', 0)
+            if is_not_zero(sl_price) or is_not_zero(sl_limit):
+                filtered['stopLoss'] = (
+                    f"{'limit' if is_not_zero(sl_limit) else 'market'}:\n \
+                    {format_with_spaces(sl_price) if is_not_zero(sl_price) else format_with_spaces(sl_limit)}"
+                )
+            else:
+                filtered['stopLoss'] = '-'
+            filtered.pop('slLimitPrice', None)
+
+            # Trigger price logic
+            trig_price = filtered.get('triggerPrice', 0)
+            if is_not_zero(trig_price):
+                arrow = '↑' if filtered.get('triggerDirection') == '1' else '↓'
+                trig_by = filtered.get('triggerBy', '-')
+                status = filtered.get('orderStatus', '-')
+                trig_formatted = format_with_spaces(trig_price)
+                filtered['triggerPrice'] = f"{arrow} {status} ({trig_by}):\n{trig_formatted}"
+            else:
+                filtered['triggerPrice'] = '-'
+
+            filtered.pop('triggerDirection', None)
+            filtered.pop('orderStatus', None)
+            filtered.pop('triggerBy', None)
+
+            if 'orderLinkId' in filtered:
+                filtered['orderLinkId'] = f"link:\n{filtered['orderLinkId']}"
+            if 'orderId' in filtered:
+                filtered['orderId'] = f"id:\n{filtered['orderId']}"
+            if category == "linear":
+                filtered.pop('isLeverage', None)
+
+            data_list[idx] = filtered
+
+        # Decide on return format
+        if return_list:
+            return data_list
+
+        df = pd.DataFrame(data_list)
+
+        # Rename columns for clarity
+        if 'leavesQty' in df.columns:
+            df.rename(
+                columns={
+                    'orderType': 'order',
+                    'avgPrice': 'avgExecPrice'
+                },
+                inplace=True
+            )
+
+        styled_df = format_dashboard(df).set_caption("Order History")
+        html = styled_df._repr_html_()
+        display_html(html, raw=True)
+
+        return None
+
 
     def place_batch_order(self, **kwargs):
         """Covers: Option (Unified Account)
