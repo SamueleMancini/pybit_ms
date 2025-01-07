@@ -1398,46 +1398,141 @@ class Trade_client:
         return None
 
 
-    def place_batch_order(self, **kwargs):
-        """Covers: Option (Unified Account)
-
-        Required args:
-            category (string): Product type. option
-            request (array): Object
-            > symbol (string): Symbol name
-            > side (string): Buy, Sell
-            > orderType (string): Market, Limit
-            > qty (string): Order quantity
-
-        https://bybit-exchange.github.io/docs/v5/order/batch-place
+    def place_batch_order(
+        self,
+        category: str,
+        orders: list[dict],
+        raw: bool = False,
+        **kwargs
+    ) -> list | dict:
         """
-        return self._http_manager._submit_request(
+        Place multiple orders in a single request.
+
+        This endpoint supports creating several orders at once for a given product category.
+
+        Args:
+            category (str): Product type (e.g., "linear", "inverse", "spot", "option").
+            orders (list[dict]): A list of dictionaries where each dictionary represents one order.
+                Required fields per order dictionary:
+                  - symbol (str): Symbol name (e.g., "BTCUSDT").
+                  - side (str): "Buy" or "Sell".
+                  - orderType (str): "Limit" or "Market".
+                  - qty (str): Order quantity.
+                Optional fields:
+                  - price (str): Required if `orderType="Limit"`.
+                  - timeInForce (str): One of "GTC", "IOC", "FOK", or "PostOnly".
+                  - reduceOnly (bool): Whether the order is reduce-only.
+                  - closeOnTrigger (bool): Whether to close the position on trigger.
+                  - orderLinkId (str): Custom client-defined order ID.
+            raw (bool, optional): If True, returns the raw Bybit API response (dict).
+                Otherwise, returns a list of order IDs or link IDs. Defaults to False.
+            **kwargs: Additional parameters recognized by Bybit's API.
+
+        Returns:
+            list | dict:
+                - If `raw=True`, returns the raw API response (dict).
+                - Otherwise, returns a list of either `orderLinkId` or `orderId`
+                  for each successfully placed order.
+
+        Notes:
+            https://bybit-exchange.github.io/docs/v5/order/batch-place
+        """
+
+        kwargs["category"] = category
+        kwargs["request"] = orders
+
+        response = self._http_manager._submit_request(
             method="POST",
             path=f"{self.endpoint}{Trade.BATCH_PLACE_ORDER}",
             query=kwargs,
             auth=True,
         )
 
-    def amend_batch_order(self, **kwargs):
-        """Covers: Option (Unified Account)
+        # Return raw response if requested
+        if raw:
+            return response
 
-        Required args:
-            category (string): Product type. option
-            request (array): Object
-            > symbol (string): Symbol name
-            > orderId (string): Order ID. Either orderId or orderLinkId is required
-            > orderLinkId (string): User customised order ID. Either orderId or orderLinkId is required
+        # Extract the list of orders from the response
+        order_list = response.get('result', {}).get('list', [])
+        success_list = []
+        for order in order_list:
+            # Check if a custom link ID (orderLinkId) was provided; otherwise, use the orderId
+            link_id = order.get('orderLinkId', '') or order.get('orderId', '')
+            success_list.append(link_id)
 
-        https://bybit-exchange.github.io/docs/v5/order/batch-amend
+        return success_list
+    
+
+    def amend_batch_order(
+        self,
+        category: str,
+        orders: list[dict],
+        raw: bool = False,
+        **kwargs
+    ) -> list | dict:
         """
-        return self._http_manager._submit_request(
+        Batch amend (modify) multiple existing orders in a single request.
+
+        This endpoint currently covers:
+            - Options (Unified Accounts)
+
+        Args:
+            category (str): Product type, e.g., "option".
+            orders (list[dict]): A list of dictionaries, where each dictionary defines
+                the parameters for one existing order to amend.  
+                Required fields for each order include:
+                  - "symbol" (str): Symbol name (e.g., "BTCUSDT").
+                  - "orderId" (str) or "orderLinkId" (str): 
+                    Either the system-generated orderId or the custom-defined orderLinkId. 
+                    At least one is required to identify the order.
+                Optional fields can include other amendable parameters (e.g., "price", "qty", etc.).
+            raw (bool, optional): If True, returns the raw Bybit API response (dict). 
+                Otherwise, returns a list of IDs (either orderLinkId or orderId). Defaults to False.
+            **kwargs: Additional parameters recognized by Bybit's API.
+
+        Returns:
+            list | dict:
+                - If `raw=True`, returns the raw API response (dict).
+                - Otherwise, returns a list of identifiers (orderLinkId if present, 
+                  otherwise orderId) for each amended order.
+
+        Nores:
+            https://bybit-exchange.github.io/docs/v5/order/batch-amend
+        """
+
+        kwargs["category"] = category
+        kwargs["request"] = orders
+
+        response = self._http_manager._submit_request(
             method="POST",
             path=f"{self.endpoint}{Trade.BATCH_AMEND_ORDER}",
             query=kwargs,
             auth=True,
         )
 
-    def cancel_batch_order(self, **kwargs):
+        # Return raw response if requested
+        if raw:
+            return response
+
+        # Extract the list of orders from the response
+        order_list = response.get("result", {}).get("list", [])
+        success_list = []
+        for order in order_list:
+            # Check if a custom link ID (orderLinkId) was provided; otherwise, use orderId
+            link_id = order.get("orderLinkId", "") or order.get("orderId", "")
+            success_list.append(link_id)
+
+        return success_list
+
+
+    def cancel_batch_order(
+            self,
+            category: str,
+            orders: list[dict],
+            raw: bool = False,
+            **kwargs
+    ) -> list | dict:
+
         """This endpoint allows you to cancel more than one open order in a single request.
 
         Required args:
@@ -1447,12 +1542,31 @@ class Trade_client:
 
         https://bybit-exchange.github.io/docs/v5/order/batch-cancel
         """
-        return self._http_manager._submit_request(
+
+        kwargs["category"] = category
+        kwargs["request"] = orders
+
+        response = self._http_manager._submit_request(
             method="POST",
-            path=f"{self.endpoint}{Trade.BATCH_CANCEL_ORDER}",
+            path=f"{self.endpoint}{Trade.BATCH_AMEND_ORDER}",
             query=kwargs,
             auth=True,
         )
+
+        # Return raw response if requested
+        if raw:
+            return response
+
+        # Extract the list of orders from the response
+        order_list = response.get("result", {}).get("list", [])
+        success_list = []
+        for order in order_list:
+            # Check if a custom link ID (orderLinkId) was provided; otherwise, use orderId
+            link_id = order.get("orderLinkId", "") or order.get("orderId", "")
+            success_list.append(link_id)
+
+        return success_list
+
 
     def get_borrow_quota(self, **kwargs):
         """Query the available balance for Spot trading and Margin trading.

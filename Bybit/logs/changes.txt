@@ -45,6 +45,16 @@ Samu:
             Added possibility to display html pandas dataframe for jupyter notebooks with relevant fields for order history, 
             possibility to display raw request response, or display simple list of all open orders.
 
+        batch_place_order():
+            Added documentation explaining nearly all possible orders, funcs parameters and correct formatting of response.
+
+        batch_amend_order():
+                -  
+
+        cancel_batch_order():
+                -
+
+        
     Account:
         get_account_info():
             Added possibility to display human readable type of account and type of margin mode, or raw request response.

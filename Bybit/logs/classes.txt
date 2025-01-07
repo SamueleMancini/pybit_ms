@@ -5,9 +5,9 @@ trade:
     GET_OPEN_ORDERS                                         X
     CANCEL_ALL_ORDERS                                       X
     GET_ORDER_HISTORY                                       X
-    BATCH_PLACE_ORDER
-    BATCH_AMEND_ORDER
-    BATCH_CANCEL_ORDER
+    BATCH_PLACE_ORDER                                       X
+    BATCH_AMEND_ORDER                                       X
+    BATCH_CANCEL_ORDER                                      X
     GET_POSITIONS                                           X
     GET_EXECUTIONS                                          X
     GET_CLOSED_PNL
