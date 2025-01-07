@@ -10,7 +10,7 @@ trade:
     BATCH_CANCEL_ORDER                                      X
     GET_POSITIONS                                           X
     GET_EXECUTIONS                                          X
-    GET_CLOSED_PNL
+    GET_CLOSED_PNL                                          X
 
     GET_BORROW_QUOT
     SET_LEVERAGE

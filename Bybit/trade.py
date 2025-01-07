@@ -2121,28 +2121,141 @@ class Trade_client:
         return None
     
 
-    def get_closed_pnl(self, max_pages=None, **kwargs):
+    def get_closed_pnl(
+        self,
+        category: str,
+        symbol: str = None,
+        start_time: str = None,
+        end_time: str = None,
+        max_pages: int = None,
+        raw: bool = False,
+        return_list: bool = False,
+        **kwargs
+    ) -> dict | list | None:
         """
-        Query user's closed profit and loss records.
-        The results are sorted by createdTime in descending order.
+        Query a user's closed profit and loss (PnL) records, sorted by `createdTime` in descending order.
 
-        Required args:
-            category (string):
-                - Unified account: "linear"
-                - Normal account: "linear", "inverse"
+        Args:
+            category (str):
+                - For Unified accounts: "linear"
+                - For Normal accounts: "linear", "inverse"
+            symbol (str, optional): Symbol name (e.g., "BTCUSDT"). Defaults to None.
+            start_time (str, optional): Date (%Y-%m-%d %H:%M:%S). Will be converted internally to ms.
+                Defaults to None.
+            end_time (str, optional): Date (%Y-%m-%d %H:%M:%S). . Will be converted internally to ms.
+                Defaults to None.
+            max_pages (int, optional): If set, will fetch multiple pages up to this limit. Defaults to None.
+            raw (bool, optional): 
+                - If `max_pages` is None and `raw=True`, returns the raw response dict.
+                - If `max_pages` is set and `raw=True`, returns a combined list of raw records.
+                Defaults to False.
+            return_list (bool, optional): 
+                - If True, returns a processed list of PnL records (and does not display a styled DataFrame).
+                - If False, displays a styled DataFrame of the data in a Jupyter environment and returns None.
+                Defaults to False.
+            **kwargs: Additional query parameters recognized by Bybit (e.g., limit).
 
-        https://bybit-exchange.github.io/docs/v5/position/close-pnl
+        Returns:
+            dict | list | None:
+                - If `max_pages` is None and `raw=True`, returns a raw dict of the API response.
+                - If `max_pages` is set and `raw=True`, returns a combined list of raw records.
+                - If `return_list=True`, returns a processed list of dictionaries.
+                - Otherwise, displays a styled HTML DataFrame of the results and returns None.
+                - Returns an empty dict if no data is found and neither `raw` nor `return_list` is requested.
 
-        :param max_pages: (int) If provided, fetch multiple pages up to this limit.
-        :param kwargs: Additional query parameters (e.g., symbol, startTime, endTime, limit).
-        :return:
-            - A single Bybit response dict if max_pages is None.
-            - A combined list of PnL records if max_pages is specified.
+        Notes:
+            - For more details, see:
+              https://bybit-exchange.github.io/docs/v5/position/close-pnl
         """
+        
+        def is_not_zero(value):
+            """Check if a value is numeric and not zero."""
+            try:
+                num = float(value)
+                return num != 0
+            except ValueError:
+                return False
+
+        def format_with_spaces(value):
+            """
+            Format numeric values by replacing commas with spaces, e.g., 1,234.56 -> 1 234.56.
+            Only applies if `value` is numeric.
+            """
+            try:
+                num = float(value)
+                # If the number is an integer, display it as an integer (e.g., 100.0 -> 100).
+                if num.is_integer():
+                    num = int(num)
+                # For large numbers, use thousands separators (spaces).
+                if num > 99999:
+                    formatted = f"{num:,}".replace(",", " ")
+                else:
+                    formatted = str(num)
+            except ValueError:
+                formatted = value
+            return formatted
+
+        def format_dashboard(df, red='Ask', green='Bid', lime='Value'):
+            """
+            Apply custom styling to a pandas DataFrame for display in a Jupyter environment.
+            """
+            def style_specific_cell(row):
+                styles = []
+                for col_name in row.keys():
+                    if green in col_name:
+                        styles.append('background-color: lightgreen; color: black; font-weight: bold;')
+                    elif red in col_name:
+                        styles.append('background-color: salmon; color: black; font-weight: bold;')
+                    elif lime in col_name:
+                        styles.append('background-color: black; color: lime')
+                    else:
+                        styles.append('background-color: black')
+                return styles
+
+            styled = df.style.apply(style_specific_cell, axis=1)
+            # Right-align columns
+            styled = styled.set_properties(**{'text-align': 'right'})
+            # Add a border and adjust the table style
+            styled = styled.set_table_attributes('style="font-size: 12px; border: 2px solid black;"')
+            # Numeric formatting
+            styled = styled.format(format_with_spaces)
+
+            # Header styles
+            header_styles = [
+                {
+                    'selector': 'caption',
+                    'props': [
+                        ('color', 'white'),
+                        ('font-size', '16px'),
+                        ('font-weight', 'bold'),
+                        ('text-align', 'center'),
+                        ('caption-side', 'top')
+                    ]
+                }
+            ]
+            styled = styled.set_table_styles(header_styles)
+
+            return styled
+
+        # Convert start_time / end_time if provided
+        if start_time is not None:
+            start_timestamp = pd.to_datetime(start_time)
+            start_time = int(start_timestamp.timestamp() * 1000)
+
+        if end_time is not None:
+            end_timestamp = pd.to_datetime(end_time)
+            end_time = int(end_timestamp.timestamp() * 1000)
+
+        # Build the request parameters
         path = f"{self.endpoint}{Trade.GET_CLOSED_PNL}"
+        kwargs['category'] = category
+        kwargs['symbol'] = symbol
+        kwargs['startTime'] = start_time
+        kwargs['endTime'] = end_time
 
-        if max_pages:
-            return self._http_manager._submit_paginated_request(
+        # If max_pages is set, use the paginated endpoint
+        if max_pages is not None:
+            data_list = self._http_manager._submit_paginated_request(
                 method="GET",
                 path=path,
                 query=kwargs,
@@ -2150,9 +2263,68 @@ class Trade_client:
                 max_pages=max_pages,
             )
         else:
-            return self._http_manager._submit_request(
+            # Otherwise, make a single request
+            response = self._http_manager._submit_request(
                 method="GET",
                 path=path,
                 query=kwargs,
                 auth=True,
             )
+            # Return raw response if requested
+            if raw:
+                return response
+
+            data_list = response.get('result', {}).get('list', [])
+            if not data_list:
+                # Return an empty dict if no data
+                return {}
+
+        # If raw is requested (and multiple pages were fetched), return the raw combined data
+        if raw:
+            return data_list
+
+        # Filter and transform each item in data_list
+        keys_to_keep = [
+            'symbol', 'orderType', 'execType', 'side', 'leverage', 'orderPrice',
+            'avgEntryPrice', 'avgExitPrice', 'qty', 'closedSize', 'closedPnl',
+            'fillCount', 'orderId', 'createdTime'
+        ]
+
+        for idx, item in enumerate(data_list):
+            filtered = {k: item[k] for k in keys_to_keep if k in item}
+
+            # Convert createdTime to a human-readable format
+            if 'createdTime' in filtered:
+                try:
+                    filtered['createdTime'] = pd.to_datetime(
+                        int(filtered['createdTime']), unit='ms'
+                    ).strftime('%Y-%m-%d %H:%M:%S')
+                except (ValueError, TypeError):
+                    filtered['createdTime'] = '-'
+
+            # Combine execType and orderType into a single field
+            if 'execType' in filtered and 'orderType' in filtered:
+                filtered['orderType'] = f"{filtered['execType']} ({filtered['orderType']})"
+            filtered.pop('execType', None)
+
+            # Replace numeric zeros with '-'
+            if not is_not_zero(filtered.get('orderPrice', 0)):
+                filtered['orderPrice'] = '-'
+            if not is_not_zero(filtered.get('leverage', 0)):
+                filtered['leverage'] = '-'
+
+            if 'orderId' in filtered:
+                filtered['orderId'] = f"id:\n{filtered['orderId']}"
+
+            data_list[idx] = filtered
+
+        # Decide on return format
+        if return_list:
+            return data_list
+
+        df = pd.DataFrame(data_list)
+        styled_df = format_dashboard(df).set_caption("Closed P&L")
+        html = styled_df._repr_html_()
+        display_html(html, raw=True)
+
+        return None

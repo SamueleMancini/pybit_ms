@@ -12,8 +12,10 @@ Samu:
         cancel_order            X
         amend_order             X
         get_order_history       X
+        get_closed_pnl          X
     Market:
         get_tickers             X
+        get_orderbook
     Account:
         get_account_info        X
 

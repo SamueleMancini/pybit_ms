@@ -43,16 +43,20 @@ Samu:
         
         get_order_history():
             Added possibility to display html pandas dataframe for jupyter notebooks with relevant fields for order history, 
-            possibility to display raw request response, or display simple list of all open orders.
+            possibility to display raw request response, or display simple list of all order history.
 
         batch_place_order():
-            Added documentation explaining nearly all possible orders, funcs parameters and correct formatting of response.
+            Added documentation explaining how to place a batch of orders, funcs parameters and correct formatting of response.
 
         batch_amend_order():
-                -  
+            Added documentation explaining how to modify a batch  oforders, funcs parameters and correct formatting of response.
 
         cancel_batch_order():
-                -
+            Added documentation explaining how to cancel a batch of orders, funcs parameters and correct formatting of response.
+        
+        get_closed_pnl():
+            Added possibility to display html pandas dataframe for jupyter notebooks with relevant fields for closed p&l, 
+            possibility to display raw request response, or display simple list of all pnl history.
 
         
     Account:
