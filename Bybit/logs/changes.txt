@@ -36,7 +36,14 @@ Samu:
             Added documentation explaining how to cancel orders, their funcs parameters and correct formatting of response.
 
         cancel_all_orders():
-            Added documentation explaining how to cancel orders, their funcs parameters and correct formatting of response.   
+            Added documentation explaining how to cancel orders, their funcs parameters and correct formatting of response.
+
+        amend_order():
+            Added documentation explaining how to modify orders, the function parameters and correct formatting of response.
+        
+        get_order_history():
+            Added possibility to display html pandas dataframe for jupyter notebooks with relevant fields for order history, 
+            possibility to display raw request response, or display simple list of all open orders.
 
     Account:
         get_account_info():
