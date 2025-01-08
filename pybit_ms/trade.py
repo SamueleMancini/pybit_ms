@@ -1,4 +1,4 @@
-from Bybit._http_manager import HTTPManager
+from pybit_ms._http_manager import HTTPManager
 from enum import Enum
 import pandas as pd
 from IPython.display import display_html

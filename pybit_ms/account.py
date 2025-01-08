@@ -1,4 +1,4 @@
-from Bybit._http_manager import HTTPManager
+from pybit_ms._http_manager import HTTPManager
 from enum import Enum
 import matplotlib.pyplot as plt
 from matplotlib import colormaps

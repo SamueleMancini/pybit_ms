@@ -1,8 +1,8 @@
-from Bybit._http_manager import HTTPManager
-from Bybit.market import Market_client
-from Bybit.trade import Trade_client
-from Bybit.account import Account_client
-from Bybit.margin import Margin_client
+from pybit_ms._http_manager import HTTPManager
+from pybit_ms.market import Market_client
+from pybit_ms.trade import Trade_client
+from pybit_ms.account import Account_client
+from pybit_ms.margin import Margin_client
 
 
 class BybitAPI:
