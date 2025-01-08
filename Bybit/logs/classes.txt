@@ -74,7 +74,7 @@ market:
     GET_INDEX_PRICE_KLINE                                   X
     GET_PREMIUM_INDEX_PRICE_KLINE
     GET_INSTRUMENTS_INFO
-    GET_ORDERBOOK
+    GET_ORDERBOOK                                           X
     GET_TICKERS                                             X
     GET_FUNDING_RATE_HISTORY
     GET_PUBLIC_TRADING_HISTORY

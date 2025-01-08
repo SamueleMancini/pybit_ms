@@ -4,6 +4,10 @@ Samu:
             Added possibility to display html for jupyter notebooks with relevant info, possibility to display raw request response,
             or display float value of ticker.
 
+        get_orderbook():
+            Added possibiity to display pandas dataframe for better visualizing orederbook, possibility to return lists of bid and asks
+            with volumes, or to return raw request.
+
     Trade:
         get_open_orders():
             Added possibility to display html pandas dataframe for jupyter notebooks with relevant fields for open orders, 

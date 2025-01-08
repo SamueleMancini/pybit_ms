@@ -15,7 +15,7 @@ Samu:
         get_closed_pnl          X
     Market:
         get_tickers             X
-        get_orderbook
+        get_orderbook           X
     Account:
         get_account_info        X
 

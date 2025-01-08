@@ -336,21 +336,156 @@ class Market_client:
                 query=kwargs,
             )
 
-    def get_orderbook(self, **kwargs):
-        """Query orderbook data
-
-        Required args:
-            category (string): Product type. spot, linear, inverse, option
-            symbol (string): Symbol name
-
-        https://bybit-exchange.github.io/docs/v5/market/orderbook
+    
+    def get_orderbook(
+        self,
+        category: str,
+        symbol: str,
+        limit: int = 20,
+        raw: bool = False,
+        return_list: bool = False,
+        **kwargs
+    ) -> dict | None:
         """
-        return self._http_manager._submit_request(
+        Query the current order book for a given symbol on Bybit. 
+
+        Args:
+            category (str): Product type, e.g., "spot", "linear", "inverse", or "option".
+            symbol (str): Symbol name (e.g., "BTCUSDT").
+            limit (int, optional): Number of price levels to retrieve. Defaults to 20.
+                - spot: [1, 200].
+                - linear&inverse: [1, 500].
+                - option: [1, 25].
+            raw (bool, optional): If True, returns the raw API response (dict). Defaults to False.
+            return_list (bool, optional): If True (and `raw=False`), returns a dict containing
+                lists of bids and asks. Defaults to False.
+            **kwargs: Additional parameters recognized by Bybit's API.
+
+        Returns:
+            dict | None:
+                - If `raw=True`, returns the raw API response (dict).
+                - If `raw=False` and `return_list=True`, returns a dict with "bids" and "asks" keys.
+                - Otherwise, displays a styled HTML DataFrame and returns None.
+
+        Notes:
+            - For more details, see Bybit's documentation:
+              https://bybit-exchange.github.io/docs/v5/market/orderbook
+        """
+
+        def format_with_spaces(value: str | float) -> str:
+            """
+            Format numeric values by replacing commas with spaces (e.g., 1,234.56 -> 1 234.56).
+            Only applies if `value` is numeric.
+            """
+            try:
+                num = float(value)
+                # If the number is an integer, display it as integer (e.g., 100.0 -> 100).
+                if num.is_integer():
+                    num = int(num)
+                # Insert thousands separators (spaces) for large numbers.
+                if num > 99999:
+                    formatted = f"{num:,}".replace(",", " ")
+                else:
+                    formatted = str(num)
+            except ValueError:
+                formatted = str(value)
+            return formatted
+
+        def format_dashboard(df: pd.DataFrame, red: str = 'Ask', green: str = 'Bid', lime: str = 'Value'):
+            """
+            Apply custom styling to a pandas DataFrame for display in a Jupyter environment.
+            """
+            def style_specific_cell(row):
+                styles = []
+                for col_name in row.keys():
+                    if green in col_name:
+                        styles.append('background-color: lightgreen; color: black; font-weight: bold;')
+                    elif red in col_name:
+                        styles.append('background-color: salmon; color: black; font-weight: bold;')
+                    elif lime in col_name:
+                        styles.append('background-color: black; color: lime')
+                    else:
+                        styles.append('background-color: black')
+                return styles
+
+            styled = df.style.apply(style_specific_cell, axis=1)
+            # Right-align columns
+            styled = styled.set_properties(**{'text-align': 'right'})
+            # Add a border and adjust the table style
+            styled = styled.set_table_attributes('style="font-size: 12px; border: 2px solid black;"')
+            # Numeric formatting
+            styled = styled.format(format_with_spaces)
+
+            # Custom header styles
+            header_styles = [
+                {
+                    'selector': 'caption',
+                    'props': [
+                        ('color', 'white'),
+                        ('font-size', '16px'),
+                        ('font-weight', 'bold'),
+                        ('text-align', 'center'),
+                        ('caption-side', 'top')
+                    ]
+                }
+            ]
+            styled = styled.set_table_styles(header_styles)
+
+            return styled
+
+        # Build and Send the Request
+        
+        path = f"{self.endpoint}{Market.GET_ORDERBOOK}"
+        kwargs['category'] = category
+        kwargs['symbol'] = symbol
+        kwargs['limit'] = limit
+
+        response = self._http_manager._submit_request(
             method="GET",
-            path=f"{self.endpoint}{Market.GET_ORDERBOOK}",
+            path=path,
             query=kwargs,
         )
-    
+
+        # If raw output is requested, return the entire response
+        if raw:
+            return response
+
+        data_list = response.get('result', {})
+        if not data_list:
+            # If there's no data, return an empty dict
+            return {}
+
+        if return_list:
+            # Return just the bids and asks as lists
+            return {
+                "bids": [data_list.get("b", [])],
+                "asks": [data_list.get("a", [])]
+            }
+
+        # 4Format Data for Display
+        asks = data_list.get("a", [])
+        bids = data_list.get("b", [])
+
+        # Determine the maximum length for alignment
+        max_len = max(len(asks), len(bids))
+
+        # Pad whichever list is shorter with '-' to align them
+        asks += [['-', '-']] * (max_len - len(asks))
+        bids += [['-', '-']] * (max_len - len(bids))
+
+        df = pd.DataFrame({
+            "bid_volume": [bid[1] for bid in bids],
+            "bid_price": [bid[0] for bid in bids],
+            "ask_price": [ask[0] for ask in asks],
+            "ask_volume": [ask[1] for ask in asks],
+        })
+
+        styled_df = format_dashboard(df).set_caption(data_list.get("s", ''))
+        html = styled_df._repr_html_()
+        display_html(html, raw=True)
+
+        return None
+
     
     def get_tickers(self, category, symbol, only_ticker=False, raw=False, **kwargs):
         """
