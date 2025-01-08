@@ -23,4 +23,5 @@ setup(
     "pandas",
     "ipython"
     ],
+    license="GPLv3",
 )

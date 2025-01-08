@@ -1,5 +1,5 @@
-# portfolio_management
-The project develops Python functions to integrate with the Bybit API, automating portfolio management by executing trades, monitoring markets, and rebalancing positions.
+# pybit_ms
+This library is a modification of the pybit official library, designed to facilitate trading automation and analysis.
 
 1) Installation Instructions:
 
