@@ -1,0 +1,87 @@
+trade:
+    PLACE_ORDER                                             X
+    AMEND_ORDER                                             X
+    CANCEL_ORDER                                            X
+    GET_OPEN_ORDERS                                         X
+    CANCEL_ALL_ORDERS                                       X
+    GET_ORDER_HISTORY                                       X
+    BATCH_PLACE_ORDER                                       X
+    BATCH_AMEND_ORDER                                       X
+    BATCH_CANCEL_ORDER                                      X
+    GET_POSITIONS                                           X
+    GET_EXECUTIONS                                          X
+    GET_CLOSED_PNL                                          X
+
+    GET_BORROW_QUOT
+    SET_LEVERAGE
+    SWITCH_MARGIN_MODE
+    SWITCH_POSITION_MODE
+    SET_TRADING_STOP
+    SET_AUTO_ADD_MARGIN
+
+margin:
+    TOGGLE_MARGIN_TRADE
+    SET_LEVERAGE
+    VIP_MARGIN_DATA
+    STATUS_AND_LEVERAGE
+    NORMAL_BORROW
+    NORMAL_REPAY
+    NORMAL_ADJUST_COLLATERAL_AMOUNT
+    NORMAL_GET_BORROW_COLLATERAL_LIMIT
+    NORMAL_GET_COLLATERAL_COIN_INFO
+    NORMAL_GET_BORROWABLE_COIN_INFO
+    NORMAL_GET_UNPAID_LOAN_ORDERS
+    NORMAL_GET_LOAN_ORDER_HISTORY
+    NORMAL_GET_REPAYMENT_ORDER_HISTORY
+    NORMAL_GET_LOAN_ADJUSTMENT_HISTORY
+    NORMAL_GET_MAX_REDUCTION_COLLATERAL_AMOUNT
+    GET_LEVERAGED_TOKEN_INFO
+    GET_LEVERAGED_TOKEN_MARKET
+    PURCHASE
+    REDEEM
+    GET_PURCHASE_REDEMPTION_RECORDS
+    GET_PRODUCT_INFO
+    GET_MARGIN_COIN_INFO
+    GET_LOAN_ORDERS
+    GET_REPAYMENT_ORDERS
+    GET_LTV
+
+account:
+    GET_WALLET_BALANCE                                        X
+    GET_SINGLE_COIN_BALANCE
+    GET_ACCOUNT_INFO                                          X
+    GET_COIN_EXCHANGE_RECORDS
+    GET_TRANSACTION_LOG
+    GET_CONTRACT_TRANSACTION_LOG
+
+    GET_BORROW_HISTORY
+    REPAY_LIABILITY
+    GET_COLLATERAL_INFO
+    SET_COLLATERAL_COIN
+    BATCH_SET_COLLATERAL_COIN
+    GET_FEE_RATE
+    SET_MARGIN_MODE
+    GET_USDC_CONTRACT_SETTLEMENT
+    GET_TRANSFERABLE_COIN
+    CREATE_INTERNAL_TRANSFER
+    GET_INTERNAL_TRANSFER_RECORDS
+    
+
+market:
+    GET_SERVER_TIME
+    GET_KLINE                                               X
+    GET_MARK_PRICE_KLINE                                    X
+    GET_INDEX_PRICE_KLINE                                   X
+    GET_PREMIUM_INDEX_PRICE_KLINE
+    GET_INSTRUMENTS_INFO
+    GET_ORDERBOOK                                           X
+    GET_TICKERS                                             X
+    GET_FUNDING_RATE_HISTORY
+    GET_PUBLIC_TRADING_HISTORY
+    GET_OPEN_INTEREST
+    GET_HISTORICAL_VOLATILITY
+    GET_INSURANCE
+    GET_RISK_LIMIT
+    GET_OPTION_DELIVERY_PRICE
+    GET_LONG_SHORT_RATIO
+    
