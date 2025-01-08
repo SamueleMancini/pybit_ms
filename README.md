@@ -5,7 +5,8 @@ The project develops Python functions to integrate with the Bybit API, automatin
 
 You can install the package using pip:
 
-```bash
+```python
 pip install pybit_ms
+```
 
 2) Usage examples
