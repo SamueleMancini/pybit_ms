@@ -71,7 +71,7 @@ Note:
 Now we can query private endpoints like looking at our wallet balance with the command get_wallet_balance():
 
 ```python
-api.account.get_wallet_balance(accountType="UNIFIED", plot=False, raw=False)
+api.account.get_wallet_balance(accountType="UNIFIED", plot=True, raw=False)
 ```
 
 Like in this example, if desired this will allow us, through the corresponding parameters, to look at a pie chart of our wallet balance and have formatted response:
