@@ -76,7 +76,7 @@ api.account.get_wallet_balance(accountType="UNIFIED", plot=False, raw=False)
 
 Like in this example, if desired this will allow us, through the corresponding parameters, to look at a pie chart of our wallet balance and have formatted response:
 
-(table)![](/images/wellet_distribution.png)
+![](/images/wellet_distribution.png)
 
 Total equity: $105,277.80 <br>
 BTC: Wallet Balance = 1.001055, USD Value = $95510.41 <br>
@@ -90,3 +90,12 @@ Another fundamental function consists in placing an order. Suppose we want to pl
 ```python
 api.trade.place_order(category="linear", symbol="BTCUSDT", side="Buy", order_type="limit", qty=0.001, price="96000")
 ```
+
+This should return the order id, for example:
+```
+'orderId: d38fcc86-c6ce-4fae-9212-f4a5d43269fhs'
+```
+
+<br>
+
+All the functions that have been added or modified, and thus differ from the official bybit library can be found in the changes.txt file, which gives details of the modifications. Documentation for these functions is encapsulated in docstrings written within the function declarations.
