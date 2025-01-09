@@ -63,7 +63,7 @@ api = BybitAPI(testnet=True, api_key=public_key, api_secret=private_key)
 <br>
 
 Note: 
-* it is always good practice to store the actual keys in a separate file and read them from there when necessary (refer to safe_api.py file in the examples folder for an example of how to store and read them).
+* it is always good practice to store the actual keys in a separate file and read them from there when necessary (refer to read_api_keys.py file in the examples folder for an example of how to store and read them).
 * when experimenting for the first times or for simulations you can set the testnet parameter to true and use your Bybit's testnt apikeys to login into the Bybit's Testnet account. 
 
 <br>
@@ -71,7 +71,7 @@ Note:
 Now we can query private endpoints like looking at our wallet balance with the command get_wallet_balance():
 
 ```python
-api.account.get_wallet_balance(accountType="UNIFIED", plot=False, raw=False)
+api.account.get_wallet_balance(accountType="UNIFIED", plot=True, raw=False)
 ```
 
 Like in this example, if desired this will allow us, through the corresponding parameters, to look at a pie chart of our wallet balance and have formatted response:
@@ -99,3 +99,5 @@ This should return the order id, for example:
 <br>
 
 All the functions that have been added or modified, and thus differ from the official bybit library can be found in the changes.txt file, which gives details of the modifications. Documentation for these functions is encapsulated in docstrings written within the function declarations.
+
+More advanced use examples can be found in example/advanced.py
