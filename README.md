@@ -27,7 +27,7 @@ from pybit_ms import BybitAPI
 ### 1. Public endpoint:
 
 
-First we show how to query a public endpoint, i.e. one that does not require porfile authentication. In this example we implement the get_tickers() function which queries the latest price snapshot, best bid/ask price, and trading volume in the last 24 hours.
+First we show how to query a public endpoint, i.e. one that does not require profile authentication. In this example we implement the get_tickers() function which queries the latest price snapshot, best bid/ask price, and trading volume in the last 24 hours.
 
 Initialize the BybitAPI class wit:
 
@@ -54,7 +54,7 @@ In case we are only interested in the price we can set the only_ticker parameter
 
 To query a private endpoint we need to pass our API keys as parameters in the intial BybitAPI client class. Store the API keys in two string variables: public_key and private_key.
 
-Initialize the BybitAPI client class wit:
+Initialize the BybitAPI client class with:
 
 ```python
 api = BybitAPI(testnet=True, api_key=public_key, api_secret=private_key)
