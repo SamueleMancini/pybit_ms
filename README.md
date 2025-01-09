@@ -38,13 +38,13 @@ api = BybitAPI()
 and query with parameters of your choice, for example spot trade, and coin pair BTC-USDT:
 
 ```python
-api.market.get_tickers(category="spot", symbol="BTCUSDT", only_ticker=False, raw=False)
+api.market.get_tickers(category="spot", symbol="BTCUSDT")
 ```
 <br>
 
 This will display an html table like the one below:
 
-(table)
+![](/images/html.png)
 
 In case we are only interested in the price we can set the only_ticker parameter to True, or set the raw parameter to True for the complete raw request response.
 
@@ -76,12 +76,17 @@ api.account.get_wallet_balance(accountType="UNIFIED", plot=False, raw=False)
 
 Like in this example, if desired this will allow us, through the corresponding parameters, to look at a pie chart of our wallet balance and have formatted response:
 
-(image)
+(table)![](/images/wellet_distribution.png)
 
-Total equity: $105,277.80
+Total equity: $105,277.80 <br>
+BTC: Wallet Balance = 1.001055, USD Value = $95510.41 <br>
+ETH: Wallet Balance = 1.288068, USD Value = $4329.78 <br>
+USDT: Wallet Balance = 5439.141664, USD Value = $5437.61 <br>
 
-BTC: Wallet Balance = 1.001055, USD Value = $95510.41
+<br>
 
-ETH: Wallet Balance = 1.288068, USD Value = $4329.78
+Another fundamental function consists in placing an order. Suppose we want to place a limit order on the BTC-USDT pair in the spot account. Based on the result we got above with the ```get_tickers()``` function we could decide to buy a quantity of 0.001 BTC when the its price reaches 96000 USDT. To place this order we simply execute:
 
-USDT: Wallet Balance = 5439.141664, USD Value = $5437.61
+```python
+api.trade.place_order(category="linear", symbol="BTCUSDT", side="Buy", order_type="limit", qty=0.001, price="96000")
+```
