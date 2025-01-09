@@ -1314,7 +1314,7 @@ class Trade_client:
         return success_list
 
 
-    def get_borrow_quota(self, category:str, symbol:str, side:str, **kwargs):
+    def get_borrow_quota(self, category:str, symbol:str, side:str, raw=False, return_list=False, **kwargs):
         """Query the available balance for Spot trading and Margin trading.
 
         Required args:
@@ -1327,12 +1327,35 @@ class Trade_client:
         kwargs['category'] = category
         kwargs['symbol'] = symbol
         kwargs['side'] = side
-        return self._http_manager._submit_request(
+        response = self._http_manager._submit_request(
             method="GET",
             path=f"{self.endpoint}{Trade.GET_BORROW_QUOTA}",
             query=kwargs,
             auth=True,
         )
+        if raw:
+            return response
+
+        data_list = response.get('result', {})
+        if not data_list:
+            return {}
+        
+        keys_to_keep = [
+            'symbol', 'side', 'borrowCoin','maxTradeQty', 'maxTradeAmount'
+        ]
+        
+        data_list = {k: data_list[k] for k in keys_to_keep if k in data_list}
+
+        self._data_handler.format_empty(data_list, 'maxTradeQty')
+        self._data_handler.format_empty(data_list, 'maxTradeAmount')
+
+        if return_list:
+            return data_list
+
+        df = pd.DataFrame([data_list])
+
+        self._data_handler.format_and_display(df, "Order History")
+        return None
 
 
     def get_positions(
@@ -1445,7 +1468,7 @@ class Trade_client:
         return None
 
 
-    def set_leverage(self, **kwargs):
+    def set_leverage(self, category:str, symbol:str, buy_leverage:str, sell_leverage:str, **kwargs):
         """Set the leverage
 
         Required args:
@@ -1462,12 +1485,22 @@ class Trade_client:
 
         https://bybit-exchange.github.io/docs/v5/position/leverage
         """
-        return self._http_manager._submit_request(
+        kwargs['category'] = category
+        kwargs['symbol'] = symbol
+        kwargs['buyLeverage'] = buy_leverage
+        kwargs['sellLeverage'] = sell_leverage
+
+        response = self._http_manager._submit_request(
             method="POST",
             path=f"{self.endpoint}{Trade.SET_LEVERAGE}",
             query=kwargs,
             auth=True,
         )
+        if response.get('retCode', 1) == 0:
+            print(f"buy_leverage: {buy_leverage}\nsell_leverage: {sell_leverage}")
+            return None
+        return response
+
 
     def switch_margin_mode(self, **kwargs):
         """Select cross margin mode or isolated margin mode
