@@ -1,4 +1,5 @@
 from pybit_ms._http_manager import HTTPManager
+from pybit_ms.data_layer.data_handler import DataHandler
 from enum import Enum
 
 
@@ -36,8 +37,9 @@ class Margin(str, Enum):
 
 class Margin_client:
     
-    def __init__(self, http_manager: HTTPManager):
+    def __init__(self, http_manager: HTTPManager, data_handler: DataHandler):
         self._http_manager = http_manager
+        self._data_handler = data_handler
         self.endpoint = http_manager.endpoint
 
     def spot_margin_trade_get_vip_margin_data(self, **kwargs):

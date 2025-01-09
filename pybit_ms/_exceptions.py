@@ -1,15 +1,3 @@
-class UnauthorizedExceptionError(Exception):
-    pass
-
-
-class InvalidChannelTypeError(Exception):
-    pass
-
-
-class TopicMismatchError(Exception):
-    pass
-
-
 class FailedRequestError(Exception):
     """
     Exception raised for failed requests.
@@ -54,21 +42,5 @@ class InvalidRequestError(Exception):
         self.resp_headers = resp_headers
         super().__init__(
             f"{message} (ErrCode: {status_code}) (ErrTime: {time})"
-            f".\nRequest → {request}."
-        )
-
-
-class RateLimitError(Exception):
-    """
-    Exception raised specifically for hitting rate limits.
-    """
-    def __init__(self, request, message, reset_timestamp=None, time=None, resp_headers=None):
-        self.request = request
-        self.message = message
-        self.reset_timestamp = reset_timestamp
-        self.time = time
-        self.resp_headers = resp_headers
-        super().__init__(
-            f"{message} (ResetTime: {reset_timestamp}) (ErrTime: {time})"
             f".\nRequest → {request}."
         )

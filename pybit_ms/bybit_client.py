@@ -29,9 +29,9 @@ class BybitAPI:
 
         # Subclients
         self.trade = Trade_client(self.http_manager, self.data_handler)
-        self.leverage = Margin_client(self.http_manager)
+        self.leverage = Margin_client(self.http_manager, self.data_handler)
         self.market = Market_client(self.http_manager, self.data_handler)
-        self.account = Account_client(self.http_manager)
+        self.account = Account_client(self.http_manager, self.data_handler)
 
     def __repr__(self):
         return f"BybitAPI(testnet={self.http_manager.testnet})"

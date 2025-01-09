@@ -73,6 +73,9 @@ Trade:
         Added possibility to display html pandas dataframe for jupyter notebooks with relevant fields for closed p&l, 
         possibility to display raw request response, or display simple list of all pnl history.
 
+    set_leverage():
+        Added documentation explaining how to set leverage, funcs parameters and correct formatting of response.
+
     
 Account:
     get_account_info():

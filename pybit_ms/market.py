@@ -54,7 +54,7 @@ class Market_client:
         Required args:
             category (string): Product type: spot,linear,inverse
             symbol (string): Symbol name
-            interval (string): Kline interval.
+            interval (string): Kline interval. 1,3,5,15,30,60,120,240,360,720 Minutes
             
         Args:
             save_csv (bool): If True, saves the Kline data as a CSV file.

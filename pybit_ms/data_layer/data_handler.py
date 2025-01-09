@@ -263,20 +263,3 @@ class DataHandler:
         styled_df = self.format_dashboard(df).set_caption(caption)
         html = styled_df._repr_html_()
         display_html(html, raw=True)
-
-
-    def save_dataframe_to_csv(self, df: pd.DataFrame, filename: str) -> str:
-        """
-        Convert a DataFrame into a CSV file for further analysis or archiving.
-        
-        Args:
-            df (pd.DataFrame): DataFrame containing the data.
-            filename (str): The CSV filename (without path).
-
-        Returns:
-            str: Full path of the created CSV file.
-        """
-        df = self.format_dataframe(df)
-        filepath = os.path.join(self.base_dir, filename)
-        df.to_csv(filepath, index=False)
-        return filepath

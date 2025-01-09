@@ -1,4 +1,5 @@
 from pybit_ms._http_manager import HTTPManager
+from pybit_ms.data_layer.data_handler import DataHandler
 from enum import Enum
 import matplotlib.pyplot as plt
 from matplotlib import colormaps
@@ -31,8 +32,9 @@ class Account(str, Enum):
 
 class Account_client:
     
-    def __init__(self, http_manager: HTTPManager):
+    def __init__(self, http_manager: HTTPManager, data_handler: DataHandler):
         self._http_manager = http_manager
+        self._data_handler = data_handler
         self.endpoint = http_manager.endpoint
 
 
@@ -371,40 +373,6 @@ class Account_client:
                 auth=True,
             )
     
-    def get_coin_balance(self, max_pages=None, **kwargs):
-        """
-        Query the balance of a specific coin in a specific account type.
-        Supports querying sub-UID's balance.
-
-        Required args:
-            memberId (string): UID. Required when querying sub UID balance
-            accountType (string): Account type
-
-        https://bybit-exchange.github.io/docs/v5/asset/account-coin-balance
-
-        :param max_pages: (int) If provided, fetch multiple pages up to this limit.
-        :param kwargs: Additional query parameters (e.g. coin, memberId, accountType, limit).
-        :return:
-            - A single-page response (dict) if max_pages is None.
-            - A list of records (combined from each page) if max_pages is set.
-        """
-        path = f"{self.endpoint}{Account.GET_SINGLE_COIN_BALANCE}"
-
-        if max_pages:
-            return self._http_manager._submit_paginated_request(
-                method="GET",
-                path=path,
-                query=kwargs,
-                auth=True,
-                max_pages=max_pages,
-            )
-        else:
-            return self._http_manager._submit_request(
-                method="GET",
-                path=path,
-                query=kwargs,
-                auth=True,
-            )
 
     def get_transferable_coin(self, max_pages=None, **kwargs):
         """
