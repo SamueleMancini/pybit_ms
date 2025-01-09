@@ -63,7 +63,7 @@ api = BybitAPI(testnet=True, api_key=public_key, api_secret=private_key)
 <br>
 
 Note: 
-* it is always good practice to store the actual keys in a separate file and read them from there when necessary (refer to safe_api.py file in the examples folder for an example of how to store and read them).
+* it is always good practice to store the actual keys in a separate file and read them from there when necessary (refer to read_api_keys.py file in the examples folder for an example of how to store and read them).
 * when experimenting for the first times or for simulations you can set the testnet parameter to true and use your Bybit's testnt apikeys to login into the Bybit's Testnet account. 
 
 <br>
