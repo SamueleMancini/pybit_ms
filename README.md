@@ -100,4 +100,4 @@ This should return the order id, for example:
 
 All the functions that have been added or modified, and thus differ from the official bybit library can be found in the changes.txt file, which gives details of the modifications. Documentation for these functions is encapsulated in docstrings written within the function declarations.
 
-More advanced example use can be found in example/advanced.py
+More advanced use examples can be found in example/advanced.py
