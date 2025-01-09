@@ -12,9 +12,7 @@ def read_api_keys(file_name):
     
     key_file = file_name
     
-    current_dir = os.path.abspath(os.path.dirname(''))
-    proj_dir = os.path.abspath(os.path.join(current_dir, '..'))  # directory of your project where you want to use the API keys
-    
+    proj_dir = os.path.abspath(os.path.dirname(''))
     file_path = os.path.join(proj_dir, key_file)
     
     keys = {}
@@ -33,6 +31,6 @@ def read_api_keys(file_name):
         
     return keys
 
-keys = read_api_keys(test=1)
+keys = read_api_keys("TAK.txt")
 public_key = keys.get('PUBLIC_KEY')
 private_key = keys.get('PRIVATE_KEY')
