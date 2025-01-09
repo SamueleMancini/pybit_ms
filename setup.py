@@ -18,7 +18,7 @@ setup(
     python_requires=">=3.6",
     install_requires=[
         "requests",
-        "crypto",
+        "Crypto",
         "matplotlib",
         "pandas",
         "ipython",
