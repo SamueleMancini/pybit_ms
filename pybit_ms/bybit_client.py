@@ -1,4 +1,5 @@
 from pybit_ms._http_manager import HTTPManager
+from pybit_ms.data_layer.data_handler import DataHandler
 from pybit_ms.market import Market_client
 from pybit_ms.trade import Trade_client
 from pybit_ms.account import Account_client
@@ -24,11 +25,12 @@ class BybitAPI:
         :param kwargs: Additional parameters to pass to the HTTPManager.
         """
         self.http_manager = HTTPManager(api_key=api_key, api_secret=api_secret, testnet=testnet, **kwargs)
+        self.data_handler = DataHandler(base_dir="data/")
 
         # Subclients
-        self.trade = Trade_client(self.http_manager)
+        self.trade = Trade_client(self.http_manager, self.data_handler)
         self.leverage = Margin_client(self.http_manager)
-        self.market = Market_client(self.http_manager)
+        self.market = Market_client(self.http_manager, self.data_handler)
         self.account = Account_client(self.http_manager)
 
     def __repr__(self):

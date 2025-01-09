@@ -1,7 +1,7 @@
 from pybit_ms._http_manager import HTTPManager
+from pybit_ms.data_layer.data_handler import DataHandler
 from enum import Enum
 import pandas as pd
-from IPython.display import display_html
 import matplotlib.pyplot as plt
 
 
@@ -33,8 +33,9 @@ class Market(str, Enum):
 
 class Market_client:
     
-    def __init__(self, http_manager: HTTPManager):
+    def __init__(self, http_manager: HTTPManager, data_handler: DataHandler):
         self._http_manager = http_manager
+        self._data_handler = data_handler
         self.endpoint = http_manager.endpoint
 
     def get_server_time(self) -> dict:
@@ -45,6 +46,7 @@ class Market_client:
             method="GET",
             path=f"{self.endpoint}{Market.GET_SERVER_TIME}",
         )
+    
 
     def get_kline(self, category: str, coin1: str, coin2: str, interval: str, save_csv=False, csv_filename=None, show_link=False, plot=False, raw=False, price_type="close", **kwargs) -> dict:
         """Query the kline data. Charts are returned in groups based on the requested interval.
@@ -76,31 +78,28 @@ class Market_client:
             query=kwargs,
         )
 
-        if save_csv:
-            import csv
+        # Extract data
+        kline_data = response.get('result', {}).get('list', [])
 
-            # Extract data
-            kline_data = response['result']['list']
+        if save_csv:
+            keys = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'turnover']
+            kline_data = [{key: a[i] for i, key in enumerate(keys)} for a in kline_data]
             csv_filename = csv_filename or f"{kwargs.get('symbol')}_kline.csv"
 
-            # Write to CSV
-            with open(csv_filename, mode='w', newline='') as file:
-                writer = csv.writer(file)
-                writer.writerow(['timestamp', 'open', 'high', 'low', 'close', 'volume', 'turnover']) 
-                writer.writerows(kline_data)
+            csv_filename = self._data_handler.store_to_csv(kline_data, csv_filename)
 
             print(f"Kline data saved to {csv_filename}")
 
 
+
         if show_link:
-            symbol = kwargs.get('symbol', 'BTCUSDT')
-            interval = kwargs.get('interval', '1')
+            symbol = kwargs.get('symbol', '')
+            interval = kwargs.get('interval', '')
             print(f"View live Kline data for {symbol}: https://www.bybit.com/trade/{category}/{coin1}/{coin2}")
 
 
         
         if plot:
-            kline_data = response['result']['list']
             df = pd.DataFrame(kline_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', 'turnover'])
             df['timestamp'] = pd.to_numeric(df['timestamp'])
             df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
@@ -133,7 +132,6 @@ class Market_client:
             return [row[mapping[price_type]] for row in response['result']['list']]
         
 
-
     def get_mark_price_kline(self, category: str, coin1: str, coin2: str, interval: str, save_csv=False, csv_filename=None, plot=False, raw=False, price_type="close",  **kwargs):
         """Query the mark price kline data. Charts are returned in groups based on the requested interval.
 
@@ -164,19 +162,15 @@ class Market_client:
             query=kwargs,
         )
 
+        # Extract data
+        kline_data = response.get('result', {}).get('list', [])
 
         if save_csv:
-            import csv
-
-            # Extract data
-            kline_data = response['result']['list']
+            keys = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'turnover']
+            kline_data = [{key: a[i] for i, key in enumerate(keys)} for a in kline_data]
             csv_filename = csv_filename or f"{kwargs.get('symbol')}_mark_price_kline.csv"
 
-            # Write to CSV
-            with open(csv_filename, mode='w', newline='') as file:
-                writer = csv.writer(file)
-                writer.writerow(['timestamp', 'open', 'high', 'low', 'close'])
-                writer.writerows(kline_data)
+            csv_filename = self._data_handler.store_to_csv(kline_data, csv_filename)
 
             print(f"Mark price kline data saved to {csv_filename}")
 
@@ -209,6 +203,7 @@ class Market_client:
             mapping = {'open': 1, 'high': 2, 'low': 3, 'close': 4}
             return [row[mapping[price_type]] for row in response['result']['list']]
 
+
     def get_index_price_kline(self, category: str, coin1: str, coin2: str, interval: str, save_csv=False, csv_filename=None, plot=False, raw=False, price_type="close", **kwargs):
         """Query the index price kline data. Charts are returned in groups based on the requested interval.
 
@@ -238,24 +233,20 @@ class Market_client:
             query=kwargs,
         )
 
+        # Extract data
+        kline_data = response.get('result', {}).get('list', [])
 
         if save_csv:
-            import csv
-
-            # Extract data
-            kline_data = response['result']['list']
+            keys = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'turnover']
+            kline_data = [{key: a[i] for i, key in enumerate(keys)} for a in kline_data]
             csv_filename = csv_filename or f"{kwargs.get('symbol')}_index_price_kline.csv"
 
-            # Write to CSV
-            with open(csv_filename, mode='w', newline='') as file:
-                writer = csv.writer(file)
-                writer.writerow(['timestamp', 'open', 'high', 'low', 'close'])
-                writer.writerows(kline_data)
+            csv_filename = self._data_handler.store_to_csv(kline_data, csv_filename)
 
             print(f"Index price kline data saved to {csv_filename}")
 
 
-        
+
         if plot:
             kline_data = response['result']['list']
             df = pd.DataFrame(kline_data, columns=['timestamp', 'open', 'high', 'low', 'close'])
@@ -283,8 +274,6 @@ class Market_client:
             mapping = {'open': 1, 'high': 2, 'low': 3, 'close': 4}
             return [row[mapping[price_type]] for row in response['result']['list']]
 
-        
-        
 
     def get_premium_index_price_kline(self, **kwargs):
         """Retrieve the premium index price kline data. Charts are returned in groups based on the requested interval.
@@ -345,7 +334,7 @@ class Market_client:
         raw: bool = False,
         return_list: bool = False,
         **kwargs
-    ) -> dict | None:
+        ) -> dict | None:
         """
         Query the current order book for a given symbol on Bybit. 
 
@@ -370,68 +359,7 @@ class Market_client:
         Notes:
             - For more details, see Bybit's documentation:
               https://bybit-exchange.github.io/docs/v5/market/orderbook
-        """
-
-        def format_with_spaces(value: str | float) -> str:
-            """
-            Format numeric values by replacing commas with spaces (e.g., 1,234.56 -> 1 234.56).
-            Only applies if `value` is numeric.
-            """
-            try:
-                num = float(value)
-                # If the number is an integer, display it as integer (e.g., 100.0 -> 100).
-                if num.is_integer():
-                    num = int(num)
-                # Insert thousands separators (spaces) for large numbers.
-                if num > 99999:
-                    formatted = f"{num:,}".replace(",", " ")
-                else:
-                    formatted = str(num)
-            except ValueError:
-                formatted = str(value)
-            return formatted
-
-        def format_dashboard(df: pd.DataFrame, red: str = 'Ask', green: str = 'Bid', lime: str = 'Value'):
-            """
-            Apply custom styling to a pandas DataFrame for display in a Jupyter environment.
-            """
-            def style_specific_cell(row):
-                styles = []
-                for col_name in row.keys():
-                    if green in col_name:
-                        styles.append('background-color: lightgreen; color: black; font-weight: bold;')
-                    elif red in col_name:
-                        styles.append('background-color: salmon; color: black; font-weight: bold;')
-                    elif lime in col_name:
-                        styles.append('background-color: black; color: lime')
-                    else:
-                        styles.append('background-color: black')
-                return styles
-
-            styled = df.style.apply(style_specific_cell, axis=1)
-            # Right-align columns
-            styled = styled.set_properties(**{'text-align': 'right'})
-            # Add a border and adjust the table style
-            styled = styled.set_table_attributes('style="font-size: 12px; border: 2px solid black;"')
-            # Numeric formatting
-            styled = styled.format(format_with_spaces)
-
-            # Custom header styles
-            header_styles = [
-                {
-                    'selector': 'caption',
-                    'props': [
-                        ('color', 'white'),
-                        ('font-size', '16px'),
-                        ('font-weight', 'bold'),
-                        ('text-align', 'center'),
-                        ('caption-side', 'top')
-                    ]
-                }
-            ]
-            styled = styled.set_table_styles(header_styles)
-
-            return styled
+        """ 
 
         # Build and Send the Request
         
@@ -480,14 +408,11 @@ class Market_client:
             "ask_volume": [ask[1] for ask in asks],
         })
 
-        styled_df = format_dashboard(df).set_caption(data_list.get("s", ''))
-        html = styled_df._repr_html_()
-        display_html(html, raw=True)
-
+        self._data_handler.format_and_display(df, data_list.get("s", ''))
         return None
 
     
-    def get_tickers(self, category, symbol, only_ticker=False, raw=False, **kwargs):
+    def get_tickers(self, category, symbol, only_ticker=False, raw=False, return_list=False, **kwargs):
         """
         Query the latest price snapshot, best bid/ask price, and trading volume in the last 24 hours.
 
@@ -496,77 +421,17 @@ class Market_client:
             symbol (str): Symbol name (e.g., "BTCUSDT"), uppercase only.
             only_ticker (bool, optional): If True, return only the ticker price. Defaults to False.
             raw (bool, optional): If True, return the raw request response. Defaults to False.
+            return_list (bool, optional): If True, returns a list of market data. Defaults to False
             **kwargs: Additional query parameters to be sent to the API.
 
         Returns:
             float: If only_ticker is True, returns the last price as a float.
-            dict: If raw is True, returns the full API response (as a dict).
+            dict: If raw is True, returns either the full API response or the list of selected fields (as a dict).
             None: If neither only_ticker nor raw is True, displays formatted HTML output and returns None.
 
         Note:
-            If `retCode` in the response is non-zero, returns an empty DataFrame.
             https://bybit-exchange.github.io/docs/v5/market/tickers
         """
-
-        def format_dashboard(df):
-            """
-            Apply custom styling to a pandas DataFrame for display in a Jupyter environment.
-            """
-            def style_specific_cell(x):
-                styles = []
-                for col_name in x.keys():
-                    if 'Bid' in col_name:
-                        styles.append('background-color: lightgreen; '
-                                      'color: black; font-weight: bold;')
-                    elif 'Ask' in col_name:
-                        styles.append('background-color: salmon; '
-                                      'color: black; font-weight: bold;')
-                    elif 'Value' in col_name:
-                        styles.append('background-color: black; color: lime')
-                    else:
-                        styles.append('background-color: black')
-                return styles
-
-            styled = df.style.apply(style_specific_cell, axis=1)
-
-            # Right-align columns
-            styled = styled.set_properties(**{'text-align': 'right'})
-
-            # Add a border and control table sizing
-            styled = styled.set_table_attributes(
-                'style="font-size: 12px; border: 2px solid black;"'
-            )
-
-            def format_with_spaces(value):
-                """Format numeric values to have commas replaced by spaces, e.g. 1,234.56 -> 1 234.56."""
-                try:
-                    num = float(value)
-                    if num.is_integer():
-                        num = int(num)
-                    formatted = f"{num:,}".replace(",", " ")
-                    
-                except ValueError:
-                    formatted = value
-                return formatted
-
-            styled = styled.format(format_with_spaces)
-
-            header_styles = [
-                {
-                    'selector': 'caption',
-                    'props': [
-                        ('color', 'white'),
-                        ('font-size', '16px'),
-                        ('font-weight', 'bold'),
-                        ('text-align', 'center'),
-                        ('caption-side', 'top')
-                    ]
-                }
-            ]
-            styled = styled.set_table_styles(header_styles)
-
-            return styled
-
         # Set required query parameters
         kwargs["category"] = category
         kwargs["symbol"] = symbol
@@ -576,68 +441,38 @@ class Market_client:
             path=f"{self.endpoint}{Market.GET_TICKERS}",
             query=kwargs,
         )
+ 
+        data = response.get('result', {}).get('list', [])
+        if not data:
+            # If the list is empty for some reason, return an empty dictionary
+            return {}
 
-        # Check API response
-        if response['retCode'] == 0:
-            data_list = response.get('result', {}).get('list', [])
-            if not data_list:
-                # If the list is empty for some reason, return an empty dictionary
-                return {}
+        data_list = data[0]
 
-            data = data_list[0]
+        # If only_ticker is True, return just the float price
+        if only_ticker:
+            return float(data_list['lastPrice'])
 
-            # If only_ticker is True, return just the float price
-            if only_ticker:
-                return float(data['lastPrice'])
+        # If raw is True, return the entire response
+        if raw:
+            return response
+        
+        data_list['time'] = response.get('time', '-')
 
-            # If raw is True, return the entire response
-            if raw:
-                return response
+        keys_to_keep = ['lastPrice', 'bid1Price', 'bid1Size', 'ask1Price', 'ask1Size', 'highPrice24h', 'lowPrice24h', 'volume24h', 'time']
+        data_list = {k: data_list[k] for k in keys_to_keep if k in data_list}
 
-            # Convert timestamp to a human-readable format
-            # (Check if 'time' key exists to avoid KeyError in unpredictable responses)
-            if 'time' in response:
-                data['time'] = pd.to_datetime(response['time'], unit='ms').strftime('%H:%M:%S')
-            else:
-                data['time'] = 'N/A'
+        
 
-            # Create vertical DataFrame
-            df_vertical = pd.DataFrame({
-                "Info": ["Last Price", "Time"],
-                "Value": [data['lastPrice'], data['time']]
-            })
+        self._data_handler.format_time(resp=data_list, key='time', form='%H:%M:%S')
+        
+        if return_list:
+            return data_list
 
-            # Create horizontal DataFrame
-            df_horizontal = pd.DataFrame([{
-                "Bid Price": data['bid1Price'],
-                "Bid Size": data['bid1Size'],
-                "Ask Price": data['ask1Price'],
-                "Ask Size": data['ask1Size'],
-                "24h High": data['highPrice24h'],
-                "24h Low": data['lowPrice24h']
-            }])
+        df = pd.DataFrame([data_list])
 
-            styled_vertical = format_dashboard(df_vertical).set_caption(symbol)
-            styled_horizontal = format_dashboard(df_horizontal).set_caption("Market Data")
-
-            html_vertical = styled_vertical._repr_html_()
-            html_horizontal = styled_horizontal._repr_html_()
-
-            combined_html = f"""
-            <table>
-              <tr>
-                <td style="vertical-align: top; padding-right: 20px;">{html_vertical}</td>
-                <td style="vertical-align: top;">{html_horizontal}</td>
-              </tr>
-            </table>
-            """
-
-            # Display the combined HTML
-            display_html(combined_html, raw=True)
-            return None
-        else:
-            # If retCode is not zero, return an empty DataFrame for consistency
-            return pd.DataFrame()
+        self._data_handler.format_and_display(df, "Market Data")
+        return None
 
 
     def get_funding_rate_history(self, **kwargs):

@@ -13,7 +13,7 @@ from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 
-from Bybit._exceptions import FailedRequestError, InvalidRequestError
+from pybit_ms._exceptions import FailedRequestError, InvalidRequestError
 
 HTTP_URL = "https://{SUBDOMAIN}.bybit.com"
 SUBDOMAIN_TESTNET = "api-testnet"

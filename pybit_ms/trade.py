@@ -1,7 +1,7 @@
 from pybit_ms._http_manager import HTTPManager
+from pybit_ms.data_layer.data_handler import DataHandler
 from enum import Enum
 import pandas as pd
-from IPython.display import display_html
 
 
 
@@ -31,8 +31,9 @@ class Trade(str, Enum):
 
 class Trade_client:
     
-    def __init__(self, http_manager: HTTPManager):
+    def __init__(self, http_manager: HTTPManager, data_handler: DataHandler):
         self._http_manager = http_manager
+        self._data_handler = data_handler
         self.endpoint = http_manager.endpoint
 
 
@@ -840,81 +841,6 @@ class Trade_client:
             https://bybit-exchange.github.io/docs/v5/order/open-order
         """
 
-        def is_not_zero(value):
-            """Check if a value is numeric and not zero."""
-            try:
-                num = float(value)
-                return num != 0
-            except ValueError:
-                return False
-
-        def format_with_spaces(value):
-            """
-            Format numeric values to have commas replaced by spaces, 
-            e.g., 1,234.56 -> 1 234.56. Only applies if `value` is numeric.
-            """
-            try:
-                num = float(value)
-                # If the number is an integer, reduce it to int for display (e.g., 100.0 -> 100).
-                if num.is_integer():
-                    num = int(num)
-
-                # If number is large, insert thousands separators (replacing commas with spaces).
-                if num > 99999:
-                    formatted = f"{num:,}".replace(",", " ")
-                else:
-                    formatted = str(num)
-            except ValueError:
-                formatted = value
-            return formatted
-
-        def format_dashboard(df, red='Ask', green='Bid', lime='Value'):
-            """
-            Apply custom styling to a pandas DataFrame for display in a Jupyter environment.
-            """
-            def style_specific_cell(row):
-                styles = []
-                for col_name in row.keys():
-                    if green in col_name:
-                        styles.append(
-                            'background-color: lightgreen; color: black; font-weight: bold;'
-                        )
-                    elif red in col_name:
-                        styles.append(
-                            'background-color: salmon; color: black; font-weight: bold;'
-                        )
-                    elif lime in col_name:
-                        styles.append('background-color: black; color: lime')
-                    else:
-                        styles.append('background-color: black')
-                return styles
-
-            styled = df.style.apply(style_specific_cell, axis=1)
-            # Right-align columns
-            styled = styled.set_properties(**{'text-align': 'right'})
-            # Add a border and control table sizing
-            styled = styled.set_table_attributes(
-                'style="font-size: 12px; border: 2px solid black;"'
-            )
-
-            styled = styled.format(format_with_spaces)
-
-            header_styles = [
-                {
-                    'selector': 'caption',
-                    'props': [
-                        ('color', 'white'),
-                        ('font-size', '16px'),
-                        ('font-weight', 'bold'),
-                        ('text-align', 'center'),
-                        ('caption-side', 'top')
-                    ]
-                }
-            ]
-            styled = styled.set_table_styles(header_styles)
-
-            return styled
-
         # Build the request parameters
         path = f"{self.endpoint}{Trade.GET_OPEN_ORDERS}"
         kwargs["category"] = category
@@ -965,57 +891,13 @@ class Trade_client:
         for idx, item in enumerate(data_list):
             filtered = {k: item[k] for k in keys_to_keep if k in item}
 
-            # Convert timestamp to human-readable
-            if 'createdTime' in filtered:
-                try:
-                    filtered['createdTime'] = pd.to_datetime(
-                        int(filtered['createdTime']), unit='ms'
-                    ).strftime('%Y-%m-%d %H:%M:%S')
-                except (ValueError, TypeError):
-                    filtered['createdTime'] = '-'
+            self._data_handler.format_time(resp=filtered, key='createdTime', form='%Y-%m-%d %H:%M:%S')
 
-            # Take-profit logic
-            if is_not_zero(filtered['takeProfit']) or is_not_zero(filtered['tpLimitPrice']):
-                filtered['takeProfit'] = (
-                    f"{'limit' if is_not_zero(filtered['tpLimitPrice']) else 'market'}:\n \
-                    {format_with_spaces(filtered['takeProfit']) if is_not_zero(filtered['takeProfit']) \
-                    else format_with_spaces(filtered['tpLimitPrice'])}"
-                )
-            else:
-                filtered['takeProfit'] = '-'
-            
-            filtered.pop('tpLimitPrice', None)
+            self._data_handler.format_take_profit(filtered)
+            self._data_handler.format_stop_loss(filtered)
+            self._data_handler.format_trigger_price(filtered)
+            self._data_handler.format_id(filtered)
 
-            # Stop-loss logic
-            if is_not_zero(filtered['stopLoss']) or is_not_zero(filtered['slLimitPrice']):
-                filtered['stopLoss'] = (
-                    f"{'limit' if is_not_zero(filtered['slLimitPrice']) else 'market'}:\n \
-                    {format_with_spaces(filtered['stopLoss']) if is_not_zero(filtered['stopLoss']) \
-                    else format_with_spaces(filtered['slLimitPrice'])}"
-                )
-            else:
-                filtered['stopLoss'] = '-'
-            
-            filtered.pop('slLimitPrice', None)
-
-            # Trigger price logic
-            if is_not_zero(filtered['triggerPrice']):
-                filtered['triggerPrice'] = (
-                    f"{'\u2191' if filtered['triggerDirection'] == '1' else '\u2193'} \
-                    {filtered['orderStatus']} ({filtered['triggerBy']}):\n \
-                    {format_with_spaces(filtered['triggerPrice'])}"
-                )
-            else:
-                filtered['triggerPrice'] = '-'
-            
-            filtered.pop('triggerDirection', None)
-            filtered.pop('orderStatus', None)
-            filtered.pop('triggerBy', None)
-
-            filtered['orderLinkId'] = f"link:\n{filtered['orderLinkId']}"
-            filtered['orderId'] = f"id:\n{filtered['orderId']}"
-
-            # If not spot, remove isLeverage
             if category != "spot":
                 filtered.pop('isLeverage', None)
 
@@ -1025,15 +907,11 @@ class Trade_client:
         if return_list:
             return data_list
 
-        # Otherwise, build a DataFrame
         df = pd.DataFrame(data_list)
-        # Rename 'leavesQty' to 'unfilledQty'
         if 'leavesQty' in df.columns:
             df.rename(columns={'leavesQty': 'unfilledQty'}, inplace=True)
 
-        styled_df = format_dashboard(df).set_caption("Open Orders")
-        html = styled_df._repr_html_()
-        display_html(html, raw=True)
+        self._data_handler.format_and_display(df, "Open Orders")
         return None
 
 
@@ -1163,74 +1041,6 @@ class Trade_client:
             https://bybit-exchange.github.io/docs/v5/order/order-list
         """
 
-        def is_not_zero(value):
-            """Check if a value is numeric and not zero."""
-            try:
-                num = float(value)
-                return num != 0
-            except ValueError:
-                return False
-
-        def format_with_spaces(value):
-            """
-            Format numeric values to replace commas with spaces, e.g., 1,234.56 -> 1 234.56.
-            Only applies if `value` is numeric.
-            """
-            try:
-                num = float(value)
-                # If the number is an integer, display as integer (e.g., 100.0 -> 100)
-                if num.is_integer():
-                    num = int(num)
-                # Insert thousands separators (spaces) for large numbers
-                if num > 99999:
-                    formatted = f"{num:,}".replace(",", " ")
-                else:
-                    formatted = str(num)
-            except ValueError:
-                formatted = value
-            return formatted
-
-        def format_dashboard(df, red='Ask', green='Bid', lime='Value'):
-            """
-            Apply custom styling to a pandas DataFrame for display in a Jupyter environment.
-            """
-            def style_specific_cell(row):
-                styles = []
-                for col_name in row.keys():
-                    if green in col_name:
-                        styles.append('background-color: lightgreen; color: black; font-weight: bold;')
-                    elif red in col_name:
-                        styles.append('background-color: salmon; color: black; font-weight: bold;')
-                    elif lime in col_name:
-                        styles.append('background-color: black; color: lime')
-                    else:
-                        styles.append('background-color: black')
-                return styles
-
-            styled = df.style.apply(style_specific_cell, axis=1)
-            # Right-align columns
-            styled = styled.set_properties(**{'text-align': 'right'})
-            # Add a border and adjust table style
-            styled = styled.set_table_attributes('style="font-size: 12px; border: 2px solid black;"')
-            # Numeric formatting
-            styled = styled.format(format_with_spaces)
-
-            # Header styles
-            header_styles = [
-                {
-                    'selector': 'caption',
-                    'props': [
-                        ('color', 'white'),
-                        ('font-size', '16px'),
-                        ('font-weight', 'bold'),
-                        ('text-align', 'center'),
-                        ('caption-side', 'top')
-                    ]
-                }
-            ]
-            styled = styled.set_table_styles(header_styles)
-            return styled
-
         # Convert start_time / end_time if provided
         if start_time is not None:
             start_timestamp = pd.to_datetime(start_time)
@@ -1295,81 +1105,20 @@ class Trade_client:
         for idx, item in enumerate(data_list):
             filtered = {k: item[k] for k in keys_to_keep if k in item}
 
-            # Convert createdTime to readable format
-            if 'createdTime' in filtered:
-                try:
-                    filtered['createdTime'] = pd.to_datetime(
-                        int(filtered['createdTime']), unit='ms'
-                    ).strftime('%Y-%m-%d %H:%M:%S')
-                except (ValueError, TypeError):
-                    filtered['createdTime'] = '-'
+            self._data_handler.format_time(resp=filtered, key='createdTime', form='%Y-%m-%d %H:%M:%S')
+            self._data_handler.format_empty(filtered, 'price')
+            self._data_handler.format_order_type(filtered, key1='orderStatus', key3='timeInForce')
+            self._data_handler.format_empty(filtered, 'isLeverage')
+            self._data_handler.format_empty(filtered, 'cumExecQty')
+            self._data_handler.format_empty(filtered, 'avgPrice')
+            self._data_handler.format_empty(filtered, 'cumExecFee')
+            self._data_handler.format_empty(filtered, 'leavesQty')
 
-            # Combine orderStatus, orderType, timeInForce into a single field
-            if (
-                'orderStatus' in filtered and
-                'orderType' in filtered and
-                'timeInForce' in filtered
-            ):
-                filtered['orderType'] = f"{filtered['orderStatus']} ({filtered['orderType']}, {filtered['timeInForce']})"
-            filtered.pop('timeInForce', None)
+            self._data_handler.format_take_profit(filtered)
+            self._data_handler.format_stop_loss(filtered)
+            self._data_handler.format_trigger_price(filtered)
+            self._data_handler.format_id(filtered)
 
-            # Replace numeric zeros with '-'
-            if not is_not_zero(filtered.get('price', 0)):
-                filtered['price'] = '-'
-            if not is_not_zero(filtered.get('isLeverage', 0)):
-                filtered['isLeverage'] = '-'
-            if not is_not_zero(filtered.get('cumExecQty', 0)):
-                filtered['cumExecQty'] = '-'
-            if not is_not_zero(filtered.get('avgPrice', 0)):
-                filtered['avgPrice'] = '-'
-            if not is_not_zero(filtered.get('cumExecFee', 0)):
-                filtered['cumExecFee'] = '-'
-            if not is_not_zero(filtered.get('leavesQty', 0)):
-                filtered['leavesQty'] = '-'
-
-            # Take-profit logic
-            tp_price = filtered.get('takeProfit', 0)
-            tp_limit = filtered.get('tpLimitPrice', 0)
-            if is_not_zero(tp_price) or is_not_zero(tp_limit):
-                filtered['takeProfit'] = (
-                    f"{'limit' if is_not_zero(tp_limit) else 'market'}:\n \
-                    {format_with_spaces(tp_price) if is_not_zero(tp_price) else format_with_spaces(tp_limit)}"
-                )
-            else:
-                filtered['takeProfit'] = '-'
-            filtered.pop('tpLimitPrice', None)
-
-            # Stop-loss logic
-            sl_price = filtered.get('stopLoss', 0)
-            sl_limit = filtered.get('slLimitPrice', 0)
-            if is_not_zero(sl_price) or is_not_zero(sl_limit):
-                filtered['stopLoss'] = (
-                    f"{'limit' if is_not_zero(sl_limit) else 'market'}:\n \
-                    {format_with_spaces(sl_price) if is_not_zero(sl_price) else format_with_spaces(sl_limit)}"
-                )
-            else:
-                filtered['stopLoss'] = '-'
-            filtered.pop('slLimitPrice', None)
-
-            # Trigger price logic
-            trig_price = filtered.get('triggerPrice', 0)
-            if is_not_zero(trig_price):
-                arrow = '↑' if filtered.get('triggerDirection') == '1' else '↓'
-                trig_by = filtered.get('triggerBy', '-')
-                status = filtered.get('orderStatus', '-')
-                trig_formatted = format_with_spaces(trig_price)
-                filtered['triggerPrice'] = f"{arrow} {status} ({trig_by}):\n{trig_formatted}"
-            else:
-                filtered['triggerPrice'] = '-'
-
-            filtered.pop('triggerDirection', None)
-            filtered.pop('orderStatus', None)
-            filtered.pop('triggerBy', None)
-
-            if 'orderLinkId' in filtered:
-                filtered['orderLinkId'] = f"link:\n{filtered['orderLinkId']}"
-            if 'orderId' in filtered:
-                filtered['orderId'] = f"id:\n{filtered['orderId']}"
             if category == "linear":
                 filtered.pop('isLeverage', None)
 
@@ -1391,10 +1140,7 @@ class Trade_client:
                 inplace=True
             )
 
-        styled_df = format_dashboard(df).set_caption("Order History")
-        html = styled_df._repr_html_()
-        display_html(html, raw=True)
-
+        self._data_handler.format_and_display(df, "Order History")
         return None
 
 
@@ -1568,7 +1314,7 @@ class Trade_client:
         return success_list
 
 
-    def get_borrow_quota(self, **kwargs):
+    def get_borrow_quota(self, category:str, symbol:str, side:str, **kwargs):
         """Query the available balance for Spot trading and Margin trading.
 
         Required args:
@@ -1578,6 +1324,9 @@ class Trade_client:
 
         https://bybit-exchange.github.io/docs/v5/order/spot-borrow-quota
         """
+        kwargs['category'] = category
+        kwargs['symbol'] = symbol
+        kwargs['side'] = side
         return self._http_manager._submit_request(
             method="GET",
             path=f"{self.endpoint}{Trade.GET_BORROW_QUOTA}",
@@ -1625,86 +1374,6 @@ class Trade_client:
             For more information, see:
             https://bybit-exchange.github.io/docs/v5/position
         """
-
-        def is_not_zero(value):
-            """Check if a value is numeric and not zero."""
-            try:
-                num = float(value)
-                return num != 0
-            except ValueError:
-                return False
-
-        def format_with_spaces(value):
-            """
-            Format numeric values to replace commas with spaces, e.g., 1,234.56 -> 1 234.56.
-            Only applies if `value` is numeric.
-            """
-            try:
-                num = float(value)
-                # If the number is an integer, display it as integer (e.g., 100.0 -> 100).
-                if num.is_integer():
-                    num = int(num)
-
-                # Insert thousands separators (replacing commas with spaces) if num is large.
-                if num > 99999:
-                    formatted = f"{num:,}".replace(",", " ")
-                else:
-                    formatted = str(num)
-            except ValueError:
-                formatted = value
-            return formatted
-
-        def format_dashboard(df, red='Ask', green='Bid', lime='Value'):
-            """
-            Apply custom styling to a pandas DataFrame for display in a Jupyter environment.
-            """
-            def style_specific_cell(row):
-                styles = []
-                for col_name in row.keys():
-                    if green in col_name:
-                        styles.append(
-                            'background-color: lightgreen; color: black; font-weight: bold;'
-                        )
-                    elif red in col_name:
-                        styles.append(
-                            'background-color: salmon; color: black; font-weight: bold;'
-                        )
-                    elif lime in col_name:
-                        styles.append('background-color: black; color: lime')
-                    else:
-                        styles.append('background-color: black')
-                return styles
-
-            styled = df.style.apply(style_specific_cell, axis=1)
-
-            # Right-align all columns
-            styled = styled.set_properties(**{'text-align': 'right'})
-
-            # Add a border and control table sizing
-            styled = styled.set_table_attributes(
-                'style="font-size: 12px; border: 2px solid black;"'
-            )
-
-            # Apply numeric formatting
-            styled = styled.format(format_with_spaces)
-
-            # Apply custom header styles
-            header_styles = [
-                {
-                    'selector': 'caption',
-                    'props': [
-                        ('color', 'white'),
-                        ('font-size', '16px'),
-                        ('font-weight', 'bold'),
-                        ('text-align', 'center'),
-                        ('caption-side', 'top')
-                    ]
-                }
-            ]
-            styled = styled.set_table_styles(header_styles)
-
-            return styled
-
         # Build the request parameters
         path = f"{self.endpoint}{Trade.GET_POSITIONS}"
         kwargs["category"] = category
@@ -1754,25 +1423,10 @@ class Trade_client:
         for idx, item in enumerate(data_list):
             filtered = {k: item[k] for k in keys_to_keep if k in item}
 
-            # Convert timestamp to human-readable format
-            if 'createdTime' in filtered:
-                try:
-                    filtered['createdTime'] = pd.to_datetime(
-                        int(filtered['createdTime']), unit='ms'
-                    ).strftime('%Y-%m-%d %H:%M:%S')
-                except (ValueError, TypeError):
-                    filtered['createdTime'] = '-'
-
-            # Combine tradeMode and leverage
-            if 'tradeMode' in filtered and 'leverage' in filtered:
-                mode_str = 'isolated' if filtered['tradeMode'] else 'cross'
-                filtered['leverage'] = f"{mode_str}: {filtered['leverage']}X"
-            filtered.pop('tradeMode', None)
-
-            if not is_not_zero(filtered.get('takeProfit', 0)):
-                filtered['takeProfit'] = '-'
-            if not is_not_zero(filtered.get('stopLoss', 0)):
-                filtered['stopLoss'] = '-'
+            self._data_handler.format_time(resp=filtered, key='createdTime', form='%Y-%m-%d %H:%M:%S')
+            self._data_handler.format_leverage(filtered)
+            self._data_handler.format_empty(filtered, 'takeProfit')
+            self._data_handler.format_empty(filtered, 'stopLoss')
 
             data_list[idx] = filtered
 
@@ -1787,9 +1441,7 @@ class Trade_client:
         if 'positionBalance' in df.columns:
             df.rename(columns={'positionBalance': 'currentMargin'}, inplace=True)
 
-        styled_df = format_dashboard(df).set_caption("Open Positions")
-        html = styled_df._repr_html_()
-        display_html(html, raw=True)
+        self._data_handler.format_and_display(df, "Open Positions")
         return None
 
 
@@ -1939,86 +1591,6 @@ class Trade_client:
             For a more thorough explanation, refer to:
             https://bybit-exchange.github.io/docs/v5/order/execution
         """
-
-        def is_not_zero(value):
-            """Check if a value is numeric and not zero."""
-            try:
-                num = float(value)
-                return num != 0
-            except ValueError:
-                return False
-
-        def format_with_spaces(value):
-            """
-            Format numeric values to have commas replaced by spaces,
-            e.g., 1,234.56 -> 1 234.56.
-            Only applies if `value` is numeric.
-            """
-            try:
-                num = float(value)
-                # If the number is an integer, display it as an integer (e.g., 100.0 -> 100).
-                if num.is_integer():
-                    num = int(num)
-
-                # Insert thousands separators (replacing commas with spaces) if num is large.
-                if num > 99999:
-                    formatted = f"{num:,}".replace(",", " ")
-                else:
-                    formatted = str(num)
-            except ValueError:
-                formatted = value
-            return formatted
-
-        def format_dashboard(df, red='Ask', green='Bid', lime='Value'):
-            """
-            Apply custom styling to a pandas DataFrame for display in a Jupyter environment.
-            """
-            def style_specific_cell(row):
-                styles = []
-                for col_name in row.keys():
-                    if green in col_name:
-                        styles.append(
-                            'background-color: lightgreen; color: black; font-weight: bold;'
-                        )
-                    elif red in col_name:
-                        styles.append(
-                            'background-color: salmon; color: black; font-weight: bold;'
-                        )
-                    elif lime in col_name:
-                        styles.append('background-color: black; color: lime')
-                    else:
-                        styles.append('background-color: black')
-                return styles
-
-            styled = df.style.apply(style_specific_cell, axis=1)
-
-            # Right-align columns
-            styled = styled.set_properties(**{'text-align': 'right'})
-
-            # Add a border and control table sizing
-            styled = styled.set_table_attributes(
-                'style="font-size: 12px; border: 2px solid black;"'
-            )
-
-            # Numeric formatting
-            styled = styled.format(format_with_spaces)
-
-            header_styles = [
-                {
-                    'selector': 'caption',
-                    'props': [
-                        ('color', 'white'),
-                        ('font-size', '16px'),
-                        ('font-weight', 'bold'),
-                        ('text-align', 'center'),
-                        ('caption-side', 'top')
-                    ]
-                }
-            ]
-            styled = styled.set_table_styles(header_styles)
-
-            return styled
-
         # Build the request parameters
         path = f"{self.endpoint}{Trade.GET_EXECUTIONS}"
         kwargs["category"] = category
@@ -2069,39 +1641,12 @@ class Trade_client:
         for idx, item in enumerate(data_list):
             filtered = {k: item[k] for k in keys_to_keep if k in item}
 
-            # Convert timestamp to human-readable format if present
-            if 'execTime' in filtered:
-                try:
-                    filtered['execTime'] = pd.to_datetime(
-                        int(filtered['execTime']), unit='ms'
-                    ).strftime('%Y-%m-%d %H:%M:%S')
-                except (ValueError, TypeError):
-                    filtered['execTime'] = '-'
-
-            # Combine execType and orderType
-            if 'execType' in filtered and 'orderType' in filtered:
-                filtered['execType'] = f"{filtered['execType']} ({filtered['orderType']})"
-            filtered.pop('orderType', None)
-
-            # Show "-" if leavesQty or closedSize is zero
-            if not is_not_zero(filtered.get('leavesQty', 0)):
-                filtered['leavesQty'] = '-'
-            if not is_not_zero(filtered.get('closedSize', 0)):
-                filtered['closedSize'] = '-'
-
-            # Format the execFee
-            if 'execFee' in filtered and 'feeCurrency' in filtered:
-                try:
-                    exec_fee_val = float(filtered['execFee'])
-                    filtered['execFee'] = f"{exec_fee_val:.4f} {filtered['feeCurrency']}"
-                except (ValueError, TypeError):
-                    filtered['execFee'] = f"0.0000 {filtered['feeCurrency']}"
-            filtered.pop('feeCurrency', None)
-
-            if 'orderLinkId' in filtered:
-                filtered['orderLinkId'] = f"link:\n{filtered['orderLinkId']}"
-            if 'orderId' in filtered:
-                filtered['orderId'] = f"id:\n{filtered['orderId']}"
+            self._data_handler.format_time(resp=filtered, key='execTime', form='%Y-%m-%d %H:%M:%S')
+            self._data_handler.format_order_type(filtered, key1='execType')
+            self._data_handler.format_empty(filtered, 'leavesQty')
+            self._data_handler.format_empty(filtered, 'closedSize')
+            self._data_handler.format_fees(filtered)
+            self._data_handler.format_id(filtered)
 
             data_list[idx] = filtered
 
@@ -2115,9 +1660,7 @@ class Trade_client:
         if 'leavesQty' in df.columns:
             df.rename(columns={'leavesQty': 'unfilledQty'}, inplace=True)
 
-        styled_df = format_dashboard(df).set_caption("Executed Orders")
-        html = styled_df._repr_html_()
-        display_html(html, raw=True)
+        self._data_handler.format_and_display(df, "Executed Orders")
         return None
     
 
@@ -2167,76 +1710,6 @@ class Trade_client:
             - For more details, see:
               https://bybit-exchange.github.io/docs/v5/position/close-pnl
         """
-        
-        def is_not_zero(value):
-            """Check if a value is numeric and not zero."""
-            try:
-                num = float(value)
-                return num != 0
-            except ValueError:
-                return False
-
-        def format_with_spaces(value):
-            """
-            Format numeric values by replacing commas with spaces, e.g., 1,234.56 -> 1 234.56.
-            Only applies if `value` is numeric.
-            """
-            try:
-                num = float(value)
-                # If the number is an integer, display it as an integer (e.g., 100.0 -> 100).
-                if num.is_integer():
-                    num = int(num)
-                # For large numbers, use thousands separators (spaces).
-                if num > 99999:
-                    formatted = f"{num:,}".replace(",", " ")
-                else:
-                    formatted = str(num)
-            except ValueError:
-                formatted = value
-            return formatted
-
-        def format_dashboard(df, red='Ask', green='Bid', lime='Value'):
-            """
-            Apply custom styling to a pandas DataFrame for display in a Jupyter environment.
-            """
-            def style_specific_cell(row):
-                styles = []
-                for col_name in row.keys():
-                    if green in col_name:
-                        styles.append('background-color: lightgreen; color: black; font-weight: bold;')
-                    elif red in col_name:
-                        styles.append('background-color: salmon; color: black; font-weight: bold;')
-                    elif lime in col_name:
-                        styles.append('background-color: black; color: lime')
-                    else:
-                        styles.append('background-color: black')
-                return styles
-
-            styled = df.style.apply(style_specific_cell, axis=1)
-            # Right-align columns
-            styled = styled.set_properties(**{'text-align': 'right'})
-            # Add a border and adjust the table style
-            styled = styled.set_table_attributes('style="font-size: 12px; border: 2px solid black;"')
-            # Numeric formatting
-            styled = styled.format(format_with_spaces)
-
-            # Header styles
-            header_styles = [
-                {
-                    'selector': 'caption',
-                    'props': [
-                        ('color', 'white'),
-                        ('font-size', '16px'),
-                        ('font-weight', 'bold'),
-                        ('text-align', 'center'),
-                        ('caption-side', 'top')
-                    ]
-                }
-            ]
-            styled = styled.set_table_styles(header_styles)
-
-            return styled
-
         # Convert start_time / end_time if provided
         if start_time is not None:
             start_timestamp = pd.to_datetime(start_time)
@@ -2293,28 +1766,11 @@ class Trade_client:
         for idx, item in enumerate(data_list):
             filtered = {k: item[k] for k in keys_to_keep if k in item}
 
-            # Convert createdTime to a human-readable format
-            if 'createdTime' in filtered:
-                try:
-                    filtered['createdTime'] = pd.to_datetime(
-                        int(filtered['createdTime']), unit='ms'
-                    ).strftime('%Y-%m-%d %H:%M:%S')
-                except (ValueError, TypeError):
-                    filtered['createdTime'] = '-'
-
-            # Combine execType and orderType into a single field
-            if 'execType' in filtered and 'orderType' in filtered:
-                filtered['orderType'] = f"{filtered['execType']} ({filtered['orderType']})"
-            filtered.pop('execType', None)
-
-            # Replace numeric zeros with '-'
-            if not is_not_zero(filtered.get('orderPrice', 0)):
-                filtered['orderPrice'] = '-'
-            if not is_not_zero(filtered.get('leverage', 0)):
-                filtered['leverage'] = '-'
-
-            if 'orderId' in filtered:
-                filtered['orderId'] = f"id:\n{filtered['orderId']}"
+            self._data_handler.format_time(resp=filtered, key='createdTime', form='%Y-%m-%d %H:%M:%S')
+            self._data_handler.format_order_type(filtered, key1='execType')
+            self._data_handler.format_empty(filtered, 'orderPrice')
+            self._data_handler.format_empty(filtered, 'leverage')
+            self._data_handler.format_id(filtered)
 
             data_list[idx] = filtered
 
@@ -2323,8 +1779,6 @@ class Trade_client:
             return data_list
 
         df = pd.DataFrame(data_list)
-        styled_df = format_dashboard(df).set_caption("Closed P&L")
-        html = styled_df._repr_html_()
-        display_html(html, raw=True)
-
+        
+        self._data_handler.format_and_display(df, "Closed P&L")
         return None
