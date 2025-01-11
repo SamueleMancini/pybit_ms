@@ -6,10 +6,10 @@ This library is a modification of the official **pybit** library, designed to fa
 
 ## Installation Instructions
 
-Install the library using `pip` with the following command:
+Install the library using `pip` with the following command. Note that Python 3.12 or later is required for the current stable version (0.1.8):
 
 ```bash
-pip install pybit_ms
+pip install pybit-ms
 ```
 
 ---
@@ -19,7 +19,7 @@ pip install pybit_ms
 Import the BybitAPI class required for interacting with the Bybit's API:
 
 ```python
-from pybit_ms import BybitAPI    
+from pybit_ms.bybit_client import BybitAPI    
 ```    
 
 <br>
@@ -29,13 +29,13 @@ from pybit_ms import BybitAPI
 
 First we show how to query a public endpoint, i.e. one that does not require profile authentication. In this example we implement the get_tickers() function which queries the latest price snapshot, best bid/ask price, and trading volume in the last 24 hours.
 
-Initialize the BybitAPI class wit:
+Initialize the BybitAPI class with:
 
 ```python
 api = BybitAPI()
 ```
 
-and query with parameters of your choice, for example spot trade, and coin pair BTC-USDT:
+and query with parameters of your choice, for example spot category, and coin pair BTC-USDT:
 
 ```python
 api.market.get_tickers(category="spot", symbol="BTCUSDT")
@@ -64,14 +64,14 @@ api = BybitAPI(testnet=True, api_key=public_key, api_secret=private_key)
 
 Note: 
 * it is always good practice to store the actual keys in a separate file and read them from there when necessary (refer to read_api_keys.py file in the examples folder for an example of how to store and read them).
-* when experimenting for the first times or for simulations you can set the testnet parameter to true and use your Bybit's testnt apikeys to login into the Bybit's Testnet account. 
+* when experimenting for the first time or for simulations you can set the testnet parameter to true and use your Bybit's testnet apikeys to login into the Bybit's Testnet account. 
 
 <br>
 
 Now we can query private endpoints like looking at our wallet balance with the command get_wallet_balance():
 
 ```python
-api.account.get_wallet_balance(accountType="UNIFIED", plot=True, raw=False)
+api.account.get_wallet_balance(accountType="UNIFIED", plot=True)
 ```
 
 Like in this example, if desired this will allow us, through the corresponding parameters, to look at a pie chart of our wallet balance and have formatted response:
@@ -85,10 +85,10 @@ USDT: Wallet Balance = 5439.141664, USD Value = $5437.61 <br>
 
 <br>
 
-Another fundamental function consists in placing an order. Suppose we want to place a limit order on the BTC-USDT pair in the spot account. Based on the result we got above with the ```get_tickers()``` function we could decide to buy a quantity of 0.001 BTC when the its price reaches 96000 USDT. To place this order we simply execute:
+Another fundamental function consists in placing an order. Suppose we want to place a spot limit order on the BTC-USDT pair. Based on the result we got above with the ```get_tickers()``` function we could decide to buy a quantity of 0.001 BTC when its price reaches 96000 USDT. To place this order we simply execute:
 
 ```python
-api.trade.place_order(category="linear", symbol="BTCUSDT", side="Buy", order_type="limit", qty=0.001, price="96000")
+api.trade.place_order(category="spot", symbol="BTCUSDT", side="Buy", order_type="limit", qty=0.001, price="96000")
 ```
 
 This should return the order id, for example:
@@ -100,4 +100,4 @@ This should return the order id, for example:
 
 All the functions that have been added or modified, and thus differ from the official bybit library can be found in the changes.txt file, which gives details of the modifications. Documentation for these functions is encapsulated in docstrings written within the function declarations.
 
-More advanced use examples can be found in example/trading.ipynb
+More advanced use examples can be found in examples/trading.ipynb
